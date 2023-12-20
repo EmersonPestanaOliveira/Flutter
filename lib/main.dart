@@ -6,7 +6,7 @@ void main() {
     MaterialApp(
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('Olá, Mundo! Flutter'),
+          title: const Text('Olá, Mundo!'),
         ),
         body: const Center(
           child: Text('Olá, Mundo!'),
