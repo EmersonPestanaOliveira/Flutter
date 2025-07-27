@@ -1,16 +1,23 @@
-# chat_reactions
+# 🎉 Chat Reactions - Flutter
 
-A new Flutter project.
+Um componente de botão de reação animada com suporte a emojis e Lottie, inspirado em chats modernos como Facebook Messenger e Slack.
 
-## Getting Started
+![Demo](assets/demo.mp4)
 
-This project is a starting point for a Flutter application.
+## 🚀 Demonstração
 
-A few resources to get you started if this is your first Flutter project:
+> 📽️ Veja o componente em ação:
+https://github.com/SeuUsuario/SeuRepositorio/assets/demo.mp4
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## ✨ Funcionalidades
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Botão central com emoji selecionado
+- Animações Lottie em reações
+- Hover aumenta o emoji
+- Exibição animada da barra de reações
+- Overlay com emoji flutuante
+
+## 📦 Dependências principais
+
+- `flutter`
+- [`lottie`](https://pub.dev/packages/lottie)
