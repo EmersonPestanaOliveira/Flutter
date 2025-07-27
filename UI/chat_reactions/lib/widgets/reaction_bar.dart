@@ -17,12 +17,11 @@ class ReactionBar extends StatelessWidget {
     required this.onHover,
     required this.onSelect,
   });
-
   @override
   Widget build(BuildContext context) {
-    return AnimatedPositioned(
+    return AnimatedSlide(
       duration: const Duration(milliseconds: 300),
-      bottom: show ? 100 : 60,
+      offset: show ? const Offset(0, -1.0) : const Offset(0, 0),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 300),
         opacity: show ? 1.0 : 0.0,
