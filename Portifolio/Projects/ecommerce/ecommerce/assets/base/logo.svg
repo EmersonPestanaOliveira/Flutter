@@ -1,0 +1,21 @@
+<svg width="220" height="60" viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="100%" y2="0">
+      <stop offset="0%" stop-color="#5E60CE"/>
+      <stop offset="100%" stop-color="#6930C3"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Carrinho estilizado -->
+  <g transform="translate(10, 10)">
+    <rect x="5" y="10" width="30" height="20" rx="4" fill="url(#grad)"/>
+    <path d="M5 10 L0 0 H35" stroke="url(#grad)" stroke-width="4" fill="none"/>
+    <circle cx="10" cy="35" r="4" fill="#5E60CE"/>
+    <circle cx="30" cy="35" r="4" fill="#5E60CE"/>
+  </g>
+
+  <!-- Texto -->
+  <text x="60" y="35" font-family="Segoe UI, sans-serif" font-size="24" fill="#333" font-weight="600">
+    E-Shop
+  </text>
+</svg>
