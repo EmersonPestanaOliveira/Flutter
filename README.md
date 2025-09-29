@@ -25,7 +25,7 @@ Demonstrations
 ## 📚 Índice do Portfólio
 
 - [🚀 Projects](#-projects)
-- [🎞️ Animações](#-animações)
+- [🎞️ Animações](#animacoes)
 - [🔌 APIs](#-apis)
 - [🗄️ Banco de dados](#️-banco-de-dados)
 - [🧠 Gerência de estado](#-gerência-de-estado)
@@ -68,7 +68,8 @@ Demonstrations
 
 ---
 
-### 🎞️ Animações
+### 🎞️ Animações <a id="animacoes"></a>
+
 - *(adicione links quando criar subexemplos)*
 
 **Caminho:** [`Portifolio/Animações/`](Portifolio/Animações/)
