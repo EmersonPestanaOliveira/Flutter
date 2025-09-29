@@ -24,6 +24,7 @@ Demonstrations
 
 ## 📚 Índice do Portfólio
 
+- [🚀 Projects](#-projects)
 - [🎞️ Animações](#-animações)
 - [🔌 APIs](#-apis)
 - [🗄️ Banco de dados](#️-banco-de-dados)
@@ -32,13 +33,32 @@ Demonstrations
 - [📐 Layouts](#-layouts)
 - [🧩 Lógica](#-lógica)
 - [📦 Packages](#-packages)
-- [🚀 Projects](#-projects)
 - [📱 Responsividade](#-responsividade)
 - [🧭 Rotas](#-rotas)
 - [📡 Sensores](#-sensores)
 - [🖥️ Telas Base](#️-telas-base)
 - [🎨 Temas](#-temas)
 - [🧱 UI](#-ui)
+
+---
+
+### 🚀 Projects
+- [`acende_led_nodeMCU`](Portifolio/Projects/acende_led_nodeMCU/)
+- [`agenda_contatos`](Portifolio/Projects/agenda_contatos/)
+- [`catalogo_produtos`](Portifolio/Projects/catalogo_produtos/)
+- [`Dart_app`](Portifolio/Projects/Dart_app/)
+- [`dashboard_empresarial`](Portifolio/Projects/dashboard_empresarial/)
+- [`ecommerce`](Portifolio/Projects/ecommerce/)
+- [`imc_clone`](Portifolio/Projects/imc_clone/)
+- [`manju`](Portifolio/Projects/manju/)
+- [`produto_app`](Portifolio/Projects/produto_app/)
+- [`rpg_life`](Portifolio/Projects/rpg_life/)
+- [`super_app`](Portifolio/Projects/super_app/)
+- [`technical_test`](Portifolio/Projects/technical_test/)
+- [`to_do`](Portifolio/Projects/to_do/)
+- [`to_do_list`](Portifolio/Projects/to_do_list/)
+
+**Caminho:** [`Portifolio/Projects/`](Portifolio/Projects/)
 
 ---
 
@@ -99,26 +119,6 @@ Demonstrations
 - [`design_system`](Portifolio/Packages/design_system/)
 
 **Caminho:** [`Portifolio/Packages/`](Portifolio/Packages/)
-
----
-
-### 🚀 Projects
-- [`acende_led_nodeMCU`](Portifolio/Projects/acende_led_nodeMCU/)
-- [`agenda_contatos`](Portifolio/Projects/agenda_contatos/)
-- [`catalogo_produtos`](Portifolio/Projects/catalogo_produtos/)
-- [`Dart_app`](Portifolio/Projects/Dart_app/)
-- [`dashboard_empresarial`](Portifolio/Projects/dashboard_empresarial/)
-- [`ecommerce`](Portifolio/Projects/ecommerce/)
-- [`imc_clone`](Portifolio/Projects/imc_clone/)
-- [`manju`](Portifolio/Projects/manju/)
-- [`produto_app`](Portifolio/Projects/produto_app/)
-- [`rpg_life`](Portifolio/Projects/rpg_life/)
-- [`super_app`](Portifolio/Projects/super_app/)
-- [`technical_test`](Portifolio/Projects/technical_test/)
-- [`to_do`](Portifolio/Projects/to_do/)
-- [`to_do_list`](Portifolio/Projects/to_do_list/)
-
-**Caminho:** [`Portifolio/Projects/`](Portifolio/Projects/)
 
 ---
 
