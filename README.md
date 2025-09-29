@@ -2,6 +2,14 @@
   <img src="assets/portifolio_logo.png" alt="Portfólio Logo" width="50%"/>
 </p>
 
+<p align="center">
+  <a href="https://www.linkedin.com/in/emerson-pestana-2b27a919b/">
+    <img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn"/>
+  </a>
+</p>
+
+
+This is my curated Flutter portfolio — showcasing apps, packages, and experiments built with passion. Inspired by the awesome-flutter list, but focused on my own journey and contributions. If you enjoy the content 📖, support visibility of the projects by giving 👍 | ⭐ | 👏
 
 # ✨ Portfólio Flutter – Emerson Pestana Oliveira
 
