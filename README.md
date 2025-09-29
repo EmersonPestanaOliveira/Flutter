@@ -11,6 +11,13 @@
 
 This is my curated Flutter portfolio — showcasing apps, packages, and experiments built with passion. Inspired by the awesome-flutter list, but focused on my own journey and contributions. If you enjoy the content 📖, support visibility of the projects by giving 👍 | ⭐ | 👏
 
+<p align="center">
+  <img src="assets/avatar.png" alt="Avatar" width="200"/>
+</p>
+
+
+Emerson’s Flutter Portfolio showcases apps, packages, and experiments designed to be scalable, performant, and user-friendly. Built with clean architecture and modern practices, these projects highlight expertise in mobile, web, and desktop development using Flutter.
+
 # ✨ Portfólio Flutter – Emerson Pestana Oliveira
 
 Este repositório contém meus projetos em Flutter, desde interfaces visuais (UI) até sistemas completos desenvolvidos com boas práticas e foco em experiência de usuário.
