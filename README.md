@@ -18,36 +18,154 @@ Emerson’s Flutter Portfolio showcases apps, packages, and experiments designed
   </a>
 </p>
 
-# ✨ Portfólio Flutter – Emerson Pestana Oliveira
+Demonstrations
 
-Este repositório contém meus projetos em Flutter, desde interfaces visuais (UI) até sistemas completos desenvolvidos com boas práticas e foco em experiência de usuário.
+
+
+## 📚 Índice do Portfólio
+
+- [🎞️ Animações](#-animações)
+- [🔌 APIs](#-apis)
+- [🗄️ Banco de dados](#️-banco-de-dados)
+- [🧠 Gerência de estado](#-gerência-de-estado)
+- [🎮 Jogos](#-jogos)
+- [📐 Layouts](#-layouts)
+- [🧩 Lógica](#-lógica)
+- [📦 Packages](#-packages)
+- [🚀 Projects](#-projects)
+- [📱 Responsividade](#-responsividade)
+- [🧭 Rotas](#-rotas)
+- [📡 Sensores](#-sensores)
+- [🖥️ Telas Base](#️-telas-base)
+- [🎨 Temas](#-temas)
+- [🧱 UI](#-ui)
+
+---
+
+### 🎞️ Animações
+- *(adicione links quando criar subexemplos)*
+
+**Caminho:** [`Portifolio/Animações/`](Portifolio/Animações/)
 
 ---
 
-## 🎨 UI – Interfaces Flutter
+### 🔌 APIs
+- [`dio_api`](Portifolio/Apis/dio_api/) — exemplos com **Dio**
+- [`http_api`](Portifolio/Apis/http_api/) — exemplos com **http**
 
-Interfaces isoladas com foco em layout, responsividade, animações e componentes reutilizáveis.
-
-| Projeto | Descrição | Tecnologias |
-|--------|-----------|-------------|
-| [Login Estética](UI/login_estetica) | Tela de login para app de estética com animação e responsividade | Flutter, Lottie |
-| [Agenda UI](UI/agenda_ui) | Agenda visual com calendário customizado | Flutter, TableCalendar |
-
-> Veja mais em [`UI/README.md`](UI/README.md)
+**Caminho:** [`Portifolio/Apis/`](Portifolio/Apis/)
 
 ---
 
-## 🧩 Projetos Completos
+### 🗄️ Banco de dados
+- *(adicione itens como Hive/Isar/SQLite se existirem)*
 
-Sistemas e apps funcionais com back-end, navegação, armazenamento e lógica de negócio.
-
-| Projeto | Descrição | Tecnologias |
-|--------|-----------|-------------|
-| [Sistema Estética](projetos/sistema_estetica) | Sistema completo de agendamento e controle financeiro para clínica de estética | Flutter, SQLite, Charts, Hive |
-
-> Veja mais em [`projetos/README.md`](projetos/README.md)
+**Caminho:** [`Portifolio/Banco de dados/`](Portifolio/Banco%20de%20dados/)
 
 ---
+
+### 🧠 Gerência de estado
+- *(ex.: Bloc/Cubit, Riverpod, Provider…)*
+
+**Caminho:** [`Portifolio/Gerência de estado/`](Portifolio/Gerência%20de%20estado/)
+
+---
+
+### 🎮 Jogos
+- [`pong`](Portifolio/Jogos/pong/)
+
+**Caminho:** [`Portifolio/Jogos/`](Portifolio/Jogos/)
+
+---
+
+### 📐 Layouts
+- *(grade, constraints, responsive rows/cols…)*
+
+**Caminho:** [`Portifolio/Layouts/`](Portifolio/Layouts/)
+
+---
+
+### 🧩 Lógica
+- [`alo_mundo`](Portifolio/Lógica/alo_mundo/)
+- [`area_circulo`](Portifolio/Lógica/area_circulo/)
+- [`ola_mundo`](Portifolio/Lógica/ola_mundo/)
+- [`soma_app`](Portifolio/Lógica/soma_app/)
+
+**Caminho:** [`Portifolio/Lógica/`](Portifolio/Lógica/)
+
+---
+
+### 📦 Packages
+- [`design_system`](Portifolio/Packages/design_system/)
+
+**Caminho:** [`Portifolio/Packages/`](Portifolio/Packages/)
+
+---
+
+### 🚀 Projects
+- [`acende_led_nodeMCU`](Portifolio/Projects/acende_led_nodeMCU/)
+- [`agenda_contatos`](Portifolio/Projects/agenda_contatos/)
+- [`catalogo_produtos`](Portifolio/Projects/catalogo_produtos/)
+- [`Dart_app`](Portifolio/Projects/Dart_app/)
+- [`dashboard_empresarial`](Portifolio/Projects/dashboard_empresarial/)
+- [`ecommerce`](Portifolio/Projects/ecommerce/)
+- [`imc_clone`](Portifolio/Projects/imc_clone/)
+- [`manju`](Portifolio/Projects/manju/)
+- [`produto_app`](Portifolio/Projects/produto_app/)
+- [`rpg_life`](Portifolio/Projects/rpg_life/)
+- [`super_app`](Portifolio/Projects/super_app/)
+- [`technical_test`](Portifolio/Projects/technical_test/)
+- [`to_do`](Portifolio/Projects/to_do/)
+- [`to_do_list`](Portifolio/Projects/to_do_list/)
+
+**Caminho:** [`Portifolio/Projects/`](Portifolio/Projects/)
+
+---
+
+### 📱 Responsividade
+- *(breakpoints, mediaquery, layout builder…)*
+
+**Caminho:** [`Portifolio/Responsividade/`](Portifolio/Responsividade/)
+
+---
+
+### 🧭 Rotas
+- *(Navigator 1.0/2.0, go_router, beamer…)*
+
+**Caminho:** [`Portifolio/Rotas/`](Portifolio/Rotas/)
+
+---
+
+### 📡 Sensores
+- [`battery/battery`](Portifolio/Sensores/battery/battery/)
+
+**Caminho:** [`Portifolio/Sensores/`](Portifolio/Sensores/)
+
+---
+
+### 🖥️ Telas Base
+- [`splash`](Portifolio/Telas%20Base/splash/)
+- [`splash_basic`](Portifolio/Telas%20Base/splash_basic/)
+- [`splash_degrade`](Portifolio/Telas%20Base/splash_degrade/)
+
+**Caminho:** [`Portifolio/Telas Base/`](Portifolio/Telas%20Base/)
+
+---
+
+### 🎨 Temas
+- *(ThemeData, cores, tipografia…)*
+
+**Caminho:** [`Portifolio/Temas/`](Portifolio/Temas/)
+
+---
+
+### 🧱 UI
+- [`chat_reactions`](Portifolio/UI/chat_reactions/)
+- [`Cupertino`](Portifolio/UI/Cupertino/)
+- [`Material`](Portifolio/UI/Material/)
+
+**Caminho:** [`Portifolio/UI/`](Portifolio/UI/)
+
 
 ## 📌 Tecnologias usadas
 
