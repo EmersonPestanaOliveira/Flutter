@@ -43,22 +43,28 @@ Demonstrations
 ---
 
 ### 🚀 Projects
-- [`acende_led_nodeMCU`](Portifolio/Projects/acende_led_nodeMCU/)
+
+# 📱 Utilitários
 - [`agenda_contatos`](Portifolio/Projects/agenda_contatos/)
 - [`catalogo_produtos`](Portifolio/Projects/catalogo_produtos/)
-- [`Dart_app`](Portifolio/Projects/Dart_app/)
-- [`dashboard_empresarial`](Portifolio/Projects/dashboard_empresarial/)
-- [`ecommerce`](Portifolio/Projects/ecommerce/)
-- [`imc_clone`](Portifolio/Projects/imc_clone/)
-- [`manju`](Portifolio/Projects/manju/)
 - [`produto_app`](Portifolio/Projects/produto_app/)
-- [`rpg_life`](Portifolio/Projects/rpg_life/)
-- [`super_app`](Portifolio/Projects/super_app/)
-- [`technical_test`](Portifolio/Projects/technical_test/)
 - [`to_do`](Portifolio/Projects/to_do/)
 - [`to_do_list`](Portifolio/Projects/to_do_list/)
 
-**Caminho:** [`Portifolio/Projects/`](Portifolio/Projects/)
+# 💼 Business / Dashboards
+- [`dashboard_empresarial`](Portifolio/Projects/dashboard_empresarial/)
+- [`ecommerce`](Portifolio/Projects/ecommerce/)
+- [`Dart_app`](Portifolio/Projects/Dart_app/)
+
+# 🎮 Games & Experimentos
+- [`rpg_life`](Portifolio/Projects/rpg_life/)
+- [`manju`](Portifolio/Projects/manju/)
+
+# ⚡ Técnicos / Testes
+- [`acende_led_nodeMCU`](Portifolio/Projects/acende_led_nodeMCU/)
+- [`imc_clone`](Portifolio/Projects/imc_clone/)
+- [`super_app`](Portifolio/Projects/super_app/)
+- [`technical_test`](Portifolio/Projects/technical_test/)
 
 ---
 
