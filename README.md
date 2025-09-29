@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="assets/portifolio_logo.png" alt="Portfólio Logo" width="500"/>
+</p>
+
+
 # ✨ Portfólio Flutter – Emerson Pestana Oliveira
 
 Este repositório contém meus projetos em Flutter, desde interfaces visuais (UI) até sistemas completos desenvolvidos com boas práticas e foco em experiência de usuário.

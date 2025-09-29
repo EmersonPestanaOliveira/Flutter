@@ -1,0 +1,42 @@
+name: todo_app
+description: "To-Do App local com SQLite, Bloc/Cubit e Clean Architecture"
+publish_to: "none" # só portfólio local
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Gerenciamento de estado
+  flutter_bloc: ^8.1.4
+  equatable: ^2.0.5
+
+  # Banco de dados SQLite
+  sqflite: ^2.3.0
+  path: ^1.9.0
+
+  # Injeção de dependência
+  get_it: ^7.6.7
+
+  # Rotas
+  go_router: ^14.2.0
+
+  #svg
+  flutter_svg: ^2.0.10
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  bloc_test: ^9.1.7
+  mocktail: ^1.0.4
+  very_good_analysis: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/db/migrations/
+    - assets/logo/todo_sci_fi.svg

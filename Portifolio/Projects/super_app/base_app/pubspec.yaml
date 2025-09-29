@@ -1,0 +1,28 @@
+name: base_app
+description: App host do super_app (carrega microapps). POC Olá Mundo.
+publish_to: "none"
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # PACOTE LOCAL (irmão de pasta)
+  micro_app_home:
+    path: ../micro_app_home
+  core:
+    path: ../core
+  brands:
+    path: ../brands
+  design_system:
+    path: ../design_system       
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

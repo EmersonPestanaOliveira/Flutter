@@ -1,0 +1,18 @@
+name: design_system
+description: Design System compartilhado (tokens, widgets e ThemeExtensions).
+publish_to: "none"
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter   # ← isto é obrigatório para usar material.dart
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  # assets/ fonts do DS (se tiver) entram aqui

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E5FF"/>
+      <stop offset="100%" stop-color="#4DD0E1"/>
+    </linearGradient>
+    <linearGradient id="chipGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7C4DFF"/>
+      <stop offset="100%" stop-color="#3D5AFE"/>
+    </linearGradient>
+    <linearGradient id="checkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00ffc6"/>
+      <stop offset="100%" stop-color="#00e5ff"/>
+    </linearGradient>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- orbital ring -->
+  <g filter="url(#softGlow)">
+    <ellipse cx="512" cy="512" rx="360" ry="160" fill="none" stroke="url(#ringGrad)" stroke-width="16"/>
+    <ellipse cx="512" cy="512" rx="320" ry="140" fill="none" stroke="#00e5ff" stroke-opacity="0.25" stroke-width="8"/>
+  </g>
+
+  <!-- hex "chip" -->
+  <g transform="translate(512,480)">
+    <g filter="url(#softGlow)">
+      <polygon points="0,-160 138,-80 138,80 0,160 -138,80 -138,-80"
+               fill="url(#chipGrad)" stroke="#aab8ff" stroke-opacity="0.18" stroke-width="4"/>
+      <line x1="-138" y1="-20" x2="-200" y2="-20" stroke="#4DD0E1" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+      <line x1="138" y1="20" x2="200" y2="20" stroke="#00E5FF" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+    </g>
+    <g transform="translate(-20,0)" filter="url(#softGlow)">
+      <path d="M -70,0 L -20,50 L 90,-60" fill="none" stroke="url(#checkGrad)"
+            stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+
+  <!-- wordmark -->
+  <g transform="translate(512,820)" text-anchor="middle" filter="url(#softGlow)">
+    <text x="0" y="0" font-family="Orbitron, 'Audiowide', Arial"
+          font-size="88" fill="#E3F2FD" letter-spacing="6">NEON TODO</text>
+    <text x="0" y="48" font-family="Inter, Arial"
+          font-size="28" fill="#80DEEA" opacity="0.8" letter-spacing="4">LOCAL · SQLITE · BLoC</text>
+  </g>
+</svg>
