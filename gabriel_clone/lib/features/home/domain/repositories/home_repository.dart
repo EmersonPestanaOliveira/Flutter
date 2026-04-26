@@ -1,8 +1,6 @@
-import 'package:dartz/dartz.dart';
-
-import '../../../../core/errors/failure.dart';
+import '../../../../core/types/app_result.dart';
 import '../entities/camera_location.dart';
 
 abstract interface class HomeRepository {
-  Future<Either<Failure, List<CameraLocation>>> getCameraLocations();
+  Future<AppResult<List<CameraLocation>>> getCameraLocations();
 }

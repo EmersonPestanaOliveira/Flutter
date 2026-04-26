@@ -19,10 +19,10 @@ class HomeState extends Equatable {
   const HomeState.loading() : this(status: HomeStatus.loading);
 
   const HomeState.loaded(List<CameraLocation> cameras)
-      : this(status: HomeStatus.loaded, cameras: cameras);
+    : this(status: HomeStatus.loaded, cameras: cameras);
 
   const HomeState.failure(String message)
-      : this(status: HomeStatus.failure, errorMessage: message);
+    : this(status: HomeStatus.failure, errorMessage: message);
 
   final HomeStatus status;
   final List<CameraLocation> cameras;
@@ -53,11 +53,11 @@ class HomeState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        cameras,
-        errorMessage,
-        isTestingFirestore,
-        hasFirestoreTestDocument,
-        firestoreValidationMessage,
-      ];
+    status,
+    cameras,
+    errorMessage,
+    isTestingFirestore,
+    hasFirestoreTestDocument,
+    firestoreValidationMessage,
+  ];
 }

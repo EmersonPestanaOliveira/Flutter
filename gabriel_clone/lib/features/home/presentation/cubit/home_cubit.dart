@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/errors/failure_x.dart';
 import '../../../../core/firebase/firebase_connection_validator.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../domain/usecases/get_camera_locations.dart';
@@ -7,7 +8,7 @@ import 'home_state.dart';
 
 class HomeCubit extends Cubit<HomeState> {
   HomeCubit(this.getCameraLocations, this.firebaseConnectionValidator)
-      : super(const HomeState.initial());
+    : super(const HomeState.initial());
 
   final GetCameraLocations getCameraLocations;
   final FirebaseConnectionValidator firebaseConnectionValidator;

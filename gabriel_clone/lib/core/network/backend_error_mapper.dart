@@ -1,12 +1,12 @@
-import '../errors/app_exception.dart';
-import '../errors/failure.dart';
+import '../errors/firebase_error_handler.dart';
+import '../errors/failures.dart';
 
 abstract final class BackendErrorMapper {
   static Failure toFailure(Object error) {
-    if (error is AppException) {
-      return Failure(error.message, code: error.code);
+    if (error is Exception) {
+      return FirebaseErrorHandler.handle(error);
     }
 
-    return const Failure('Nao foi possivel processar a solicitacao.');
+    return UnknownFailure(log: error);
   }
 }
