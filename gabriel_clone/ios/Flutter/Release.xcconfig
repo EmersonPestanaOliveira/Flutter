@@ -1,1 +1,2 @@
+#include? "GoogleMapsApiKey.xcconfig"
 #include "Generated.xcconfig"

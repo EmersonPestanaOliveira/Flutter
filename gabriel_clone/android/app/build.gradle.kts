@@ -1,9 +1,39 @@
+import java.util.Base64
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
+}
+
+fun googleMapsApiKey(): String {
+    val dartDefines = providers.gradleProperty("dart-defines").orNull
+    if (!dartDefines.isNullOrBlank()) {
+        dartDefines.split(',')
+            .mapNotNull { encoded ->
+                runCatching {
+                    String(Base64.getDecoder().decode(encoded))
+                }.getOrNull()
+            }
+            .firstOrNull { decoded -> decoded.startsWith("GOOGLE_MAPS_API_KEY=") }
+            ?.substringAfter('=')
+            ?.takeIf { key -> key.isNotBlank() }
+            ?.let { key -> return key }
+    }
+
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use(localProperties::load)
+        localProperties.getProperty("GOOGLE_MAPS_API_KEY")
+            ?.takeIf { key -> key.isNotBlank() }
+            ?.let { key -> return key }
+    }
+
+    return System.getenv("GOOGLE_MAPS_API_KEY") ?: ""
 }
 
 dependencies {
@@ -35,14 +65,12 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.emerson.gabriel"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey()
     }
 
     buildTypes {
@@ -57,5 +85,3 @@ android {
 flutter {
     source = "../.."
 }
-
-

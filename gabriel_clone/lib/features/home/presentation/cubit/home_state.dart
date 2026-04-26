@@ -1,63 +1,55 @@
 import 'package:equatable/equatable.dart';
 
-import '../../domain/entities/camera_location.dart';
+import '../../domain/entities/alerta.dart';
+import '../../domain/entities/camera.dart';
 
-enum HomeStatus { initial, loading, loaded, failure }
+sealed class HomeState extends Equatable {
+  const HomeState();
 
-class HomeState extends Equatable {
-  const HomeState({
-    required this.status,
-    this.cameras = const [],
-    this.errorMessage,
-    this.isTestingFirestore = false,
-    this.hasFirestoreTestDocument = false,
-    this.firestoreValidationMessage,
+  @override
+  List<Object?> get props => [];
+}
+
+final class HomeInitial extends HomeState {
+  const HomeInitial();
+}
+
+final class HomeLoading extends HomeState {
+  const HomeLoading();
+}
+
+final class HomeLoaded extends HomeState {
+  const HomeLoaded({
+    required this.cameras,
+    required this.alertas,
+    this.tabIndex = 0,
   });
 
-  const HomeState.initial() : this(status: HomeStatus.initial);
+  final List<Camera> cameras;
+  final List<Alerta> alertas;
+  final int tabIndex;
 
-  const HomeState.loading() : this(status: HomeStatus.loading);
-
-  const HomeState.loaded(List<CameraLocation> cameras)
-    : this(status: HomeStatus.loaded, cameras: cameras);
-
-  const HomeState.failure(String message)
-    : this(status: HomeStatus.failure, errorMessage: message);
-
-  final HomeStatus status;
-  final List<CameraLocation> cameras;
-  final String? errorMessage;
-  final bool isTestingFirestore;
-  final bool hasFirestoreTestDocument;
-  final String? firestoreValidationMessage;
-
-  HomeState copyWith({
-    HomeStatus? status,
-    List<CameraLocation>? cameras,
-    String? errorMessage,
-    bool? isTestingFirestore,
-    bool? hasFirestoreTestDocument,
-    String? firestoreValidationMessage,
+  HomeLoaded copyWith({
+    List<Camera>? cameras,
+    List<Alerta>? alertas,
+    int? tabIndex,
   }) {
-    return HomeState(
-      status: status ?? this.status,
+    return HomeLoaded(
       cameras: cameras ?? this.cameras,
-      errorMessage: errorMessage ?? this.errorMessage,
-      isTestingFirestore: isTestingFirestore ?? this.isTestingFirestore,
-      hasFirestoreTestDocument:
-          hasFirestoreTestDocument ?? this.hasFirestoreTestDocument,
-      firestoreValidationMessage:
-          firestoreValidationMessage ?? this.firestoreValidationMessage,
+      alertas: alertas ?? this.alertas,
+      tabIndex: tabIndex ?? this.tabIndex,
     );
   }
 
   @override
-  List<Object?> get props => [
-    status,
-    cameras,
-    errorMessage,
-    isTestingFirestore,
-    hasFirestoreTestDocument,
-    firestoreValidationMessage,
-  ];
+  List<Object?> get props => [cameras, alertas, tabIndex];
+}
+
+final class HomeError extends HomeState {
+  const HomeError({required this.message});
+
+  final String message;
+
+  @override
+  List<Object?> get props => [message];
 }

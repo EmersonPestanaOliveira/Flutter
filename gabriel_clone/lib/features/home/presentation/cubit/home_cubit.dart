@@ -1,81 +1,52 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/failure_x.dart';
-import '../../../../core/firebase/firebase_connection_validator.dart';
+import '../../../../core/types/app_result.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../../domain/usecases/get_camera_locations.dart';
+import '../../domain/entities/alerta.dart';
+import '../../domain/entities/camera.dart';
+import '../../domain/usecases/get_alertas_usecase.dart';
+import '../../domain/usecases/get_cameras_usecase.dart';
 import 'home_state.dart';
 
 class HomeCubit extends Cubit<HomeState> {
-  HomeCubit(this.getCameraLocations, this.firebaseConnectionValidator)
-    : super(const HomeState.initial());
+  HomeCubit(this.getCamerasUseCase, this.getAlertasUseCase)
+      : super(const HomeInitial());
 
-  final GetCameraLocations getCameraLocations;
-  final FirebaseConnectionValidator firebaseConnectionValidator;
+  final GetCamerasUseCase getCamerasUseCase;
+  final GetAlertasUseCase getAlertasUseCase;
 
-  Future<void> loadCameraLocations() async {
-    emit(const HomeState.loading());
+  Future<void> loadData() async {
+    emit(const HomeLoading());
 
-    final result = await getCameraLocations(const NoParams());
+    final results = await Future.wait([
+      getCamerasUseCase(const NoParams()),
+      getAlertasUseCase(const NoParams()),
+    ]);
 
-    result.fold(
-      (failure) => emit(HomeState.failure(failure.message)),
-      (cameras) => emit(HomeState.loaded(cameras)),
+    final camerasResult = results[0] as AppResult<List<Camera>>;
+    final alertasResult = results[1] as AppResult<List<Alerta>>;
+
+    camerasResult.fold(
+      (failure) => emit(HomeError(message: failure.message)),
+      (cameras) => alertasResult.fold(
+        (failure) => emit(HomeError(message: failure.message)),
+        (alertas) => emit(
+          HomeLoaded(
+            cameras: cameras,
+            alertas: alertas,
+          ),
+        ),
+      ),
     );
   }
 
-  Future<void> createAndReadFirestoreTestDocument() async {
-    emit(
-      state.copyWith(
-        isTestingFirestore: true,
-        firestoreValidationMessage: 'Gravando e lendo documento de teste...',
-      ),
-    );
-
-    try {
-      await firebaseConnectionValidator.createAndReadTestDocument();
-      emit(
-        state.copyWith(
-          hasFirestoreTestDocument: true,
-          isTestingFirestore: false,
-          firestoreValidationMessage:
-              'Documento criado e lido. Confira _diagnostics/firestore_connection_test no Console.',
-        ),
-      );
-    } catch (error) {
-      emit(
-        state.copyWith(
-          isTestingFirestore: false,
-          firestoreValidationMessage: 'Erro ao validar Firestore: $error',
-        ),
-      );
+  void changeTab(int index) {
+    final currentState = state;
+    if (currentState is! HomeLoaded) {
+      return;
     }
-  }
 
-  Future<void> deleteFirestoreTestDocument() async {
-    emit(
-      state.copyWith(
-        isTestingFirestore: true,
-        firestoreValidationMessage: 'Removendo documento de teste...',
-      ),
-    );
-
-    try {
-      await firebaseConnectionValidator.deleteTestDocument();
-      emit(
-        state.copyWith(
-          hasFirestoreTestDocument: false,
-          isTestingFirestore: false,
-          firestoreValidationMessage: 'Documento de teste removido.',
-        ),
-      );
-    } catch (error) {
-      emit(
-        state.copyWith(
-          isTestingFirestore: false,
-          firestoreValidationMessage: 'Erro ao remover teste: $error',
-        ),
-      );
-    }
+    emit(currentState.copyWith(tabIndex: index));
   }
 }
