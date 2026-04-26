@@ -36,6 +36,40 @@ class HomePage extends StatelessWidget {
                       'Mapa e cameras serao carregados nesta tela.',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
+                    const SizedBox(height: AppSpacing.lg),
+                    FilledButton.icon(
+                      onPressed: state.isTestingFirestore
+                          ? null
+                          : context
+                              .read<HomeCubit>()
+                              .createAndReadFirestoreTestDocument,
+                      icon: state.isTestingFirestore
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.cloud_done_outlined),
+                      label: const Text('Gravar e ler teste'),
+                    ),
+                    if (state.hasFirestoreTestDocument) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      OutlinedButton.icon(
+                        onPressed: state.isTestingFirestore
+                            ? null
+                            : context
+                                .read<HomeCubit>()
+                                .deleteFirestoreTestDocument,
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Remover teste'),
+                      ),
+                    ],
+                    if (state.firestoreValidationMessage != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        state.firestoreValidationMessage!,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
                   ],
                 ),
             };
