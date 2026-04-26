@@ -1,15 +1,17 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failure.dart';
+import '../../../../core/usecases/usecase.dart';
 import '../entities/camera_location.dart';
 import '../repositories/home_repository.dart';
 
-class GetCameraLocations {
+class GetCameraLocations implements UseCase<List<CameraLocation>, NoParams> {
   const GetCameraLocations(this.repository);
 
   final HomeRepository repository;
 
-  Future<Either<Failure, List<CameraLocation>>> call() {
+  @override
+  Future<Either<Failure, List<CameraLocation>>> call(NoParams params) {
     return repository.getCameraLocations();
   }
 }

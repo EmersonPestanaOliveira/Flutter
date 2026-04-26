@@ -1,17 +1,33 @@
 # gabriel_clone
 
-A new Flutter project.
+Aplicativo Flutter para iOS e Android da primeira sprint do Gabriel Clone.
 
-## Getting Started
+## Arquitetura
 
-This project is a starting point for a Flutter application.
+O projeto usa arquitetura feature-first com Clean Architecture:
 
-A few resources to get you started if this is your first Flutter project:
+```text
+lib/
+  core/
+  features/
+    home/
+      data/
+      domain/
+      presentation/
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Inversao de dependencia
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+A camada `domain` define contratos e regras de negocio. Ela nunca importa `data`.
+
+A camada `presentation` consome casos de uso e estados. Ela nunca importa `data` diretamente.
+
+A camada `data` implementa contratos definidos em `domain` e conversa com servicos externos, como Firebase.
+
+Toda dependencia concreta deve ser registrada em `lib/core/di/injection_container.dart` via GetIt. O app acessa dependencias pelo service locator `sl`, e nao por construcao manual espalhada nas telas.
+
+## Firebase
+
+O app inicializa Firebase antes do `runApp` usando `DefaultFirebaseOptions.currentPlatform`.
+
+Instancias compartilhadas como `FirebaseFirestore.instance` e `FirebaseStorage.instance` ficam registradas como singletons no GetIt.

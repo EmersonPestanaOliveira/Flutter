@@ -13,7 +13,7 @@ final appRouter = GoRouter(
       path: AppRoute.home.path,
       name: AppRoute.home.name,
       builder: (context, state) => BlocProvider(
-        create: (_) => getIt<HomeCubit>()..loadCameraLocations(),
+        create: (_) => sl<HomeCubit>()..loadCameraLocations(),
         child: const HomePage(),
       ),
     ),
