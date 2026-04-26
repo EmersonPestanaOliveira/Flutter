@@ -1,4 +1,4 @@
-package com.example.gabriel_clone
+package com.emerson.gabriel
 
 import io.flutter.embedding.android.FlutterActivity
 

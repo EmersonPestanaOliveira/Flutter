@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "195364338272",
+    "project_id": "gabriel-d3995",
+    "storage_bucket": "gabriel-d3995.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:195364338272:android:952280688264a7e8832105",
+        "android_client_info": {
+          "package_name": "com.emerson.gabriel"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3lw4h0j8aW8hPI9ErCQZSZNF61ixjuOY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
