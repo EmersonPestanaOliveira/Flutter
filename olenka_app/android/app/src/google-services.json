@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "560013335902",
+    "project_id": "olenka-98e26",
+    "storage_bucket": "olenka-98e26.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:560013335902:android:9df5695318b823410483cf",
+        "android_client_info": {
+          "package_name": "com_olenka.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhJZoNL6qyQ2T6-gSfqHrmCccR2iUDY5w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

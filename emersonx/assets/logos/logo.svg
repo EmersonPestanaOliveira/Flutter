@@ -1,0 +1,94 @@
+<svg width="1400" height="420" viewBox="0 0 1400 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="60" y1="40" x2="360" y2="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7C5CFF"/>
+      <stop offset="50%" stop-color="#37D6FF"/>
+      <stop offset="100%" stop-color="#8BFFB7"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#B7C2FF"/>
+      <stop offset="100%" stop-color="#E8EEFF"/>
+    </linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#DCE6FF"/>
+      <stop offset="50%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#B9CAFF"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="1 0 0 0 0
+                0 1 0 0 0.1
+                0 0 1 0 0.25
+                0 0 0 0.7 0" result="glowColor"/>
+      <feBlend in="SourceGraphic" in2="glowColor" mode="screen"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <!-- Icon -->
+  <g transform="translate(40 30)">
+    <!-- outer sci-fi frame -->
+    <path d="M165 12L260 67V177L165 232L70 177V67L165 12Z"
+          stroke="url(#g1)" stroke-width="10" stroke-linejoin="round" filter="url(#glow)"/>
+
+    <!-- inner tech rails -->
+    <path d="M108 86V156M222 86V156" stroke="url(#g1)" stroke-width="6" stroke-linecap="round" opacity="0.9"/>
+    <path d="M108 86H134M108 156H134M196 86H222M196 156H222"
+          stroke="url(#g1)" stroke-width="6" stroke-linecap="round" opacity="0.9"/>
+
+    <!-- stylized E -->
+    <path d="M112 86H184M112 121H168M112 156H184M112 86V156"
+          stroke="url(#g3)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- stylized X -->
+    <path d="M150 86L218 156M218 86L150 156"
+          stroke="url(#g2)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- circuit nodes -->
+    <circle cx="165" cy="12" r="7" fill="#8EDCFF" filter="url(#glow)"/>
+    <circle cx="260" cy="67" r="7" fill="#8BFFB7" filter="url(#glow)"/>
+    <circle cx="260" cy="177" r="7" fill="#37D6FF" filter="url(#glow)"/>
+    <circle cx="165" cy="232" r="7" fill="#7C5CFF" filter="url(#glow)"/>
+    <circle cx="70" cy="177" r="7" fill="#8BFFB7" filter="url(#glow)"/>
+    <circle cx="70" cy="67" r="7" fill="#37D6FF" filter="url(#glow)"/>
+
+    <!-- subtle data lines -->
+    <path d="M165 12V42M260 67H232M260 177H232M165 232V202M70 177H98M70 67H98"
+          stroke="url(#g1)" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+
+    <!-- bracket accents -->
+    <path d="M35 97V45H87M35 147V199H87" stroke="#95A8FF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"/>
+    <path d="M295 97V45H243M295 147V199H243" stroke="#95A8FF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity="0.75"/>
+  </g>
+
+  <!-- Wordmark -->
+  <g transform="translate(410 95)">
+    <!-- tiny code accent -->
+    <text x="0" y="18" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" letter-spacing="4" fill="#91A7FF" opacity="0.85">&lt;/&gt;</text>
+
+    <text x="0" y="120"
+      font-family="Inter, Segoe UI, Arial, sans-serif"
+      font-size="110"
+      font-weight="700"
+      letter-spacing="1.5"
+      fill="url(#g3)">Emerson</text>
+
+    <text x="503" y="120"
+      font-family="Inter, Segoe UI, Arial, sans-serif"
+      font-size="110"
+      font-weight="800"
+      letter-spacing="2"
+      fill="url(#g1)" filter="url(#glow)">X</text>
+
+    <rect x="2" y="150" width="580" height="2.5" rx="1.25" fill="url(#g1)" opacity="0.75"/>
+
+    <text x="0" y="198"
+      font-family="JetBrains Mono, Consolas, monospace"
+      font-size="28"
+      letter-spacing="5"
+      fill="#B7C2FF" opacity="0.95">FLUTTER • PORTFOLIO • SYSTEMS</text>
+  </g>
+</svg>
