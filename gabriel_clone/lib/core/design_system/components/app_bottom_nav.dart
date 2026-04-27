@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../app_colors.dart';
 import '../../router/app_routes.dart';
 
 class AppBottomNav extends StatelessWidget {
@@ -9,14 +10,14 @@ class AppBottomNav extends StatelessWidget {
   static const _items = [
     _BottomNavItem(
       label: 'Resultados',
-      icon: Icons.home_outlined,
-      activeIcon: Icons.home,
+      icon: Icons.article_outlined,
+      activeIcon: Icons.article,
       route: AppRoutes.home,
     ),
     _BottomNavItem(
-      label: 'Ocorrencias',
-      icon: Icons.report_outlined,
-      activeIcon: Icons.report,
+      label: 'Ocorrências',
+      icon: Icons.security_outlined,
+      activeIcon: Icons.security,
       route: AppRoutes.ocorrencias,
     ),
     _BottomNavItem(
@@ -27,8 +28,8 @@ class AppBottomNav extends StatelessWidget {
     ),
     _BottomNavItem(
       label: 'Imagens',
-      icon: Icons.photo_library_outlined,
-      activeIcon: Icons.photo_library,
+      icon: Icons.videocam_outlined,
+      activeIcon: Icons.videocam,
       route: AppRoutes.imagens,
     ),
   ];
@@ -40,17 +41,52 @@ class AppBottomNav extends StatelessWidget {
       (item) => currentLocation == item.route,
     );
 
-    return NavigationBar(
-      selectedIndex: currentIndex < 0 ? 0 : currentIndex,
-      onDestinationSelected: (index) => context.go(_items[index].route),
-      destinations: [
-        for (final item in _items)
-          NavigationDestination(
-            icon: Icon(item.icon),
-            selectedIcon: Icon(item.activeIcon),
-            label: item.label,
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppColors.neutral0,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 16,
+            color: Color(0x1F000000),
+            offset: Offset(0, -4),
           ),
-      ],
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            indicatorColor: Colors.transparent,
+            labelTextStyle: WidgetStateProperty.all(
+              Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppColors.neutral900,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            iconTheme: WidgetStateProperty.all(
+              const IconThemeData(color: AppColors.neutral900, size: 28),
+            ),
+          ),
+          child: NavigationBar(
+            height: 86,
+            selectedIndex: currentIndex < 0 ? 0 : currentIndex,
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            onDestinationSelected: (index) => context.go(_items[index].route),
+            destinations: [
+              for (final item in _items)
+                NavigationDestination(
+                  icon: Icon(item.icon),
+                  selectedIcon: Icon(item.activeIcon),
+                  label: item.label,
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

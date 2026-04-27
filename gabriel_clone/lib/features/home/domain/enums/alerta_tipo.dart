@@ -6,19 +6,19 @@ enum AlertaTipo {
   estelionato,
   vandalismo,
   invasao,
-  outros;
+  outros,
 }
 
 AlertaTipo alertaTipoFromString(String value) {
   final normalized = value
       .trim()
       .toLowerCase()
-      .replaceAll('ê', 'e')
-      .replaceAll('é', 'e')
-      .replaceAll('í', 'i')
-      .replaceAll('ã', 'a')
-      .replaceAll('á', 'a')
-      .replaceAll('ç', 'c')
+      .replaceAll('Ã©', 'e')
+      .replaceAll('Ãª', 'e')
+      .replaceAll('Ã­', 'i')
+      .replaceAll('Ã¡', 'a')
+      .replaceAll('Ã¢', 'a')
+      .replaceAll('Ã§', 'c')
       .replaceAll('-', ' ')
       .replaceAll('_', ' ');
 
