@@ -6,21 +6,28 @@ import '../../../../core/design_system/app_spacing.dart';
 import '../cubit/home_cubit.dart';
 
 class HomeTabBar extends StatelessWidget {
-  const HomeTabBar({required this.tabIndex, super.key});
+  const HomeTabBar({
+    required this.tabIndex,
+    required this.isAlertMapEnabled,
+    super.key,
+  });
 
   final int tabIndex;
+  final bool isAlertMapEnabled;
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final barWidth = (width - 144).clamp(188.0, 260.0);
+    final barWidth = isAlertMapEnabled
+        ? (width - 172).clamp(188.0, 220.0)
+        : (width - 220).clamp(132.0, 168.0);
 
     return Container(
       width: barWidth,
-      height: 54,
+      height: 40,
       decoration: BoxDecoration(
         color: AppColors.neutral0,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
             blurRadius: 18,
@@ -32,20 +39,17 @@ class HomeTabBar extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: Row(
         children: [
-          Expanded(
-            child: _HomeTabButton(
-              label: 'Camaleões',
-              isSelected: tabIndex == 0,
-              onTap: () => context.read<HomeCubit>().changeTab(0),
-            ),
+          _HomeTabButton(
+            label: 'CamaleÃµes',
+            isSelected: tabIndex == 0,
+            onTap: () => context.read<HomeCubit>().changeTab(0),
           ),
-          Expanded(
-            child: _HomeTabButton(
+          if (isAlertMapEnabled)
+            _HomeTabButton(
               label: 'Alertas',
               isSelected: tabIndex == 1,
               onTap: () => context.read<HomeCubit>().changeTab(1),
             ),
-          ),
         ],
       ),
     );
@@ -65,22 +69,24 @@ class _HomeTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: isSelected ? const Color(0xFF5A72C8) : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: isSelected ? AppColors.neutral0 : AppColors.neutral900,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
+    return Expanded(
+      child: Material(
+        color: isSelected ? const Color(0xFF5A72C8) : Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: isSelected ? AppColors.neutral0 : AppColors.neutral900,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
         ),

@@ -1,7 +1,11 @@
 import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/alerta.dart';
+import '../../domain/entities/alerta_cluster.dart';
+import '../../domain/entities/alerta_filter.dart';
 import '../../domain/entities/camera.dart';
+import '../../domain/services/alerta_cluster_service.dart';
+import '../utils/home_filter_utils.dart';
 
 sealed class HomeState extends Equatable {
   const HomeState();
@@ -23,26 +27,70 @@ final class HomeLoaded extends HomeState {
     required this.cameras,
     required this.alertas,
     this.tabIndex = 0,
+    this.isAlertMapEnabled = true,
+    this.filter = const AlertaFilter(),
+    this.currentZoom = 13.0,
+    this.selectedAlerta,
+    this.isLoadingPins = false,
   });
 
   final List<Camera> cameras;
+
+  /// Lista completa de alertas no viewport atual.
   final List<Alerta> alertas;
+
   final int tabIndex;
+  final bool isAlertMapEnabled;
+  final AlertaFilter filter;
+  final double currentZoom;
+
+  /// Alerta selecionado ao tocar num pin individual.
+  final Alerta? selectedAlerta;
+
+  /// `true` enquanto uma query de viewport está em andamento.
+  final bool isLoadingPins;
+
+  /// Alertas filtrados pelos critérios ativos (pura função).
+  List<Alerta> get filteredAlertas => applyFilter(alertas, filter);
+
+  /// Clusters calculados para o zoom atual — determinístico e testável.
+  List<AlertaCluster> get clusters =>
+      AlertaClusterService.cluster(filteredAlertas, currentZoom);
 
   HomeLoaded copyWith({
     List<Camera>? cameras,
     List<Alerta>? alertas,
     int? tabIndex,
+    bool? isAlertMapEnabled,
+    AlertaFilter? filter,
+    double? currentZoom,
+    Object? selectedAlerta = _sentinel,
+    bool? isLoadingPins,
   }) {
     return HomeLoaded(
       cameras: cameras ?? this.cameras,
       alertas: alertas ?? this.alertas,
       tabIndex: tabIndex ?? this.tabIndex,
+      isAlertMapEnabled: isAlertMapEnabled ?? this.isAlertMapEnabled,
+      filter: filter ?? this.filter,
+      currentZoom: currentZoom ?? this.currentZoom,
+      selectedAlerta:
+          selectedAlerta == _sentinel ? this.selectedAlerta : selectedAlerta as Alerta?,
+      isLoadingPins: isLoadingPins ?? this.isLoadingPins,
     );
   }
 
   @override
-  List<Object?> get props => [cameras, alertas, tabIndex];
+  List<Object?> get props => [
+        cameras,
+        alertas,
+        tabIndex,
+        isAlertMapEnabled,
+        filter,
+        currentZoom,
+        selectedAlerta,
+        isLoadingPins,
+      ];
 }
 
 final class HomeError extends HomeState {
@@ -53,3 +101,5 @@ final class HomeError extends HomeState {
   @override
   List<Object?> get props => [message];
 }
+
+const _sentinel = Object();

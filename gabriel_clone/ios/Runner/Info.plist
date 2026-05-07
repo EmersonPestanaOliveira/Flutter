@@ -50,7 +50,13 @@
 		</dict>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Precisamos da sua localizacao para exibir cameras proximas no mapa.</string>
+	<string>Precisamos da sua localizacao para exibir cameras proximas no mapa e alertar sobre areas de atencao.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Precisamos da camera para anexar fotos e videos ao relato.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Precisamos do microfone para gravar o audio do relato.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Precisamos acessar suas fotos para anexar midias ao relato.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -60,15 +66,11 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 </dict>
 </plist>

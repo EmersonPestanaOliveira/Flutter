@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
+import '../../../../core/network/backend_error_mapper.dart';
 import '../../../../core/types/app_result.dart';
 import '../../domain/entities/camera.dart';
 import '../../domain/repositories/camera_repository.dart';
@@ -19,7 +20,7 @@ class CameraRepositoryImpl implements CameraRepository {
     } on Failure catch (failure) {
       return Left(failure);
     } catch (error) {
-      return Left(UnknownFailure(log: error));
+      return Left(BackendErrorMapper.toFailure(error));
     }
   }
 }

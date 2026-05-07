@@ -45,3 +45,9 @@ app.*.map.json
 /android/app/release
 
 ios/Flutter/GoogleMapsApiKey.xcconfig
+
+node_modules/
+**/node_modules/
+service-account.json
+**/serviceAccountKey.json
+*.env

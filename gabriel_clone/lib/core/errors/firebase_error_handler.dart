@@ -2,19 +2,36 @@ import 'dart:developer' as developer;
 
 import 'package:firebase_core/firebase_core.dart';
 
+import '../network/backend_error_code.dart';
 import 'failures.dart';
 
 abstract final class FirebaseErrorHandler {
   static Failure handle(Exception exception) {
     if (exception is FirebaseException) {
-      return switch (exception.code) {
-        'permission-denied' => ServerFailure(
+      final errorCode = BackendErrorCode.fromServerCode(exception.code);
+      return switch (errorCode) {
+        BackendErrorCode.networkOffline => OfflineFailure(
           code: exception.code,
           log: exception,
         ),
-        'unavailable' => NetworkFailure(code: exception.code, log: exception),
-        'not-found' => NotFoundFailure(code: exception.code, log: exception),
-        _ => _unknown(exception),
+        BackendErrorCode.networkPoor || BackendErrorCode.timeout =>
+          PoorConnectionFailure(
+            errorCode: errorCode,
+            code: exception.code,
+            log: exception,
+          ),
+        BackendErrorCode.notFound ||
+        BackendErrorCode.storageObjectNotFound => NotFoundFailure(
+          errorCode: errorCode,
+          code: exception.code,
+          log: exception,
+        ),
+        BackendErrorCode.unknown => _unknown(exception),
+        _ => ServerFailure(
+          errorCode: errorCode,
+          code: exception.code,
+          log: exception,
+        ),
       };
     }
 

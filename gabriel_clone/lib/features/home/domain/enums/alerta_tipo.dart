@@ -1,3 +1,5 @@
+import '../../../../core/utils/text_normalizer.dart';
+
 enum AlertaTipo {
   violencia,
   acidente,
@@ -10,17 +12,11 @@ enum AlertaTipo {
 }
 
 AlertaTipo alertaTipoFromString(String value) {
-  final normalized = value
-      .trim()
-      .toLowerCase()
-      .replaceAll('é', 'e')
-      .replaceAll('ê', 'e')
-      .replaceAll('í', 'i')
-      .replaceAll('á', 'a')
-      .replaceAll('â', 'a')
-      .replaceAll('ç', 'c')
-      .replaceAll('-', ' ')
-      .replaceAll('_', ' ');
+  final normalized = normalizeSearchText(
+    value,
+    collapseWhitespace: true,
+    separatorsAsSpaces: true,
+  );
 
   if (normalized == 'violencia') {
     return AlertaTipo.violencia;
@@ -52,13 +48,13 @@ AlertaTipo alertaTipoFromString(String value) {
 extension AlertaTipoX on AlertaTipo {
   String get label {
     return switch (this) {
-      AlertaTipo.violencia => 'Violencia',
+      AlertaTipo.violencia => 'Violência',
       AlertaTipo.acidente => 'Acidente',
-      AlertaTipo.rouboFurtoVeiculo => 'Roubo ou Furto de Veiculos',
+      AlertaTipo.rouboFurtoVeiculo => 'Roubo ou Furto de Veículos',
       AlertaTipo.rouboFurto => 'Roubo ou Furto',
       AlertaTipo.estelionato => 'Estelionato',
       AlertaTipo.vandalismo => 'Vandalismo',
-      AlertaTipo.invasao => 'Invasao',
+      AlertaTipo.invasao => 'Invasão',
       AlertaTipo.outros => 'Outros',
     };
   }

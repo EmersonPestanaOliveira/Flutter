@@ -1,13 +1,45 @@
 abstract final class AppRoutes {
+  static const splash = '/splash';
+  static const login = '/login';
+  static const register = '/cadastro';
   static const home = '/home';
   static const ocorrencias = '/ocorrencias';
+  static const ocorrenciasInfo = '/ocorrencias/informacoes';
+  static const ocorrenciasForm = '/ocorrencias/relato';
+  static const minhasOcorrencias = '/ocorrencias/meus-relatos';
+  static const ocorrenciasSuccess = '/ocorrencias/sucesso';
   static const placas = '/placas';
+  static const placasInfo = '/placas/informacoes';
+  static const placasForm = '/placas/formulario';
+  static const placasSuccess = '/placas/sucesso';
   static const imagens = '/imagens';
+  static const editProfile = '/editar-perfil';
+  static const addPlace = '/adicionar-local';
+  static const technicalSupport = '/suporte-tecnico';
+  static const about = '/sobre';
+  static const faq = '/duvidas-frequentes';
+  static const resultados = '/resultados';
 }
 
 abstract final class AppRouteNames {
+  static const splash = 'splash';
+  static const login = 'login';
+  static const register = 'register';
   static const home = 'home';
   static const ocorrencias = 'ocorrencias';
+  static const ocorrenciasInfo = 'ocorrencias-info';
+  static const ocorrenciasForm = 'ocorrencias-form';
+  static const minhasOcorrencias = 'minhas-ocorrencias';
+  static const ocorrenciasSuccess = 'ocorrencias-success';
   static const placas = 'placas';
+  static const placasInfo = 'placas-info';
+  static const placasForm = 'placas-form';
+  static const placasSuccess = 'placas-success';
   static const imagens = 'imagens';
+  static const editProfile = 'edit-profile';
+  static const addPlace = 'add-place';
+  static const technicalSupport = 'technical-support';
+  static const about = 'about';
+  static const faq = 'faq';
+  static const resultados = 'resultados';
 }

@@ -1,34 +1,29 @@
 import 'package:flutter/widgets.dart';
 
+import '../design_system/app_responsive.dart';
+
 abstract final class ScreenUtils {
-  static bool isSmall(BuildContext context) => _width(context) < 360;
+  static bool isSmall(BuildContext context) => AppResponsive.isCompact(context);
 
   static bool isMedium(BuildContext context) {
-    final width = _width(context);
+    final width = AppResponsive.width(context);
     return width >= 360 && width <= 414;
   }
 
-  static bool isLarge(BuildContext context) => _width(context) > 414;
+  static bool isLarge(BuildContext context) =>
+      AppResponsive.width(context) > 414;
 
-  static bool isTablet(BuildContext context) => _width(context) > 600;
+  static bool isTablet(BuildContext context) => AppResponsive.isTablet(context);
 
   static double horizontalPadding(BuildContext context) {
-    if (isSmall(context)) {
-      return 12;
-    }
-    if (isTablet(context)) {
-      return 32;
-    }
-    return 16;
+    return AppResponsive.horizontalPadding(context);
   }
 
   static double bottomOverlayPadding(BuildContext context) {
-    return MediaQuery.paddingOf(context).bottom + 16;
+    return AppResponsive.bottomOverlayPadding(context);
   }
 
   static double topOverlayPadding(BuildContext context) {
-    return MediaQuery.paddingOf(context).top + 16;
+    return AppResponsive.topOverlayPadding(context);
   }
-
-  static double _width(BuildContext context) => MediaQuery.sizeOf(context).width;
 }

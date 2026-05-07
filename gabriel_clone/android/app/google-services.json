@@ -12,7 +12,20 @@
           "package_name": "com.emerson.gabriel"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "195364338272-1i3u3snvnkn2ldggvthhq1ucl40oqo8m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.emerson.gabriel",
+            "certificate_hash": "9c7786677276d590e8ac5e1df519f4c3584c6822"
+          }
+        },
+        {
+          "client_id": "195364338272-5onghv8ieokdvm2s1qr4t0g5pud8mria.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB3lw4h0j8aW8hPI9ErCQZSZNF61ixjuOY"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "195364338272-5onghv8ieokdvm2s1qr4t0g5pud8mria.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "195364338272-00hlevp68rlo3gloqgjls8ggcd57cojr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.gabrielClone"
+              }
+            }
+          ]
         }
       }
     }

@@ -1,0 +1,19 @@
+{
+  "name": "gabriel_seed",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "seed:cameras": "node seed_cameras.js",
+    "seed:cameras:reset": "node seed_cameras.js --reset",
+    "seed:cameras:dry-run": "node seed_cameras.js --dry-run",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "firebase-admin": "^13.8.0"
+  }
+}

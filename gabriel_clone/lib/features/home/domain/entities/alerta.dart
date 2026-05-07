@@ -12,6 +12,8 @@ class Alerta extends Equatable {
     required this.tipo,
     required this.latitude,
     required this.longitude,
+    this.localSyncStatus,
+    this.localError,
   });
 
   final String id;
@@ -22,6 +24,10 @@ class Alerta extends Equatable {
   final AlertaTipo tipo;
   final double latitude;
   final double longitude;
+  final String? localSyncStatus;
+  final String? localError;
+
+  bool get isLocalPending => localSyncStatus != null;
 
   @override
   List<Object?> get props => [
@@ -33,5 +39,7 @@ class Alerta extends Equatable {
         tipo,
         latitude,
         longitude,
+        localSyncStatus,
+        localError,
       ];
 }

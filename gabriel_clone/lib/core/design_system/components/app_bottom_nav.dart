@@ -12,19 +12,25 @@ class AppBottomNav extends StatelessWidget {
       label: 'Resultados',
       icon: Icons.article_outlined,
       activeIcon: Icons.article,
-      route: AppRoutes.home,
+      route: AppRoutes.resultados,
+      heroTag: 'resultados-label',
+      usesPush: true,
     ),
     _BottomNavItem(
-      label: 'Ocorrências',
+      label: 'OcorrÃªncias',
       icon: Icons.security_outlined,
       activeIcon: Icons.security,
       route: AppRoutes.ocorrencias,
+      heroTag: 'ocorrencias-label',
+      usesPush: true,
     ),
     _BottomNavItem(
       label: 'Placas',
       icon: Icons.directions_car_outlined,
       activeIcon: Icons.directions_car,
       route: AppRoutes.placas,
+      heroTag: 'placas-label',
+      usesPush: true,
     ),
     _BottomNavItem(
       label: 'Imagens',
@@ -55,36 +61,93 @@ class AppBottomNav extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        child: NavigationBarTheme(
-          data: NavigationBarThemeData(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            indicatorColor: Colors.transparent,
-            labelTextStyle: WidgetStateProperty.all(
-              Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppColors.neutral900,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
+        maintainBottomViewPadding: true,
+        child: SizedBox(
+          height: 86,
+          child: Row(
+            children: [
+              for (var index = 0; index < _items.length; index++)
+                Expanded(
+                  child: _BottomNavButton(
+                    item: _items[index],
+                    isSelected: (currentIndex < 0 ? 0 : currentIndex) == index,
+                    onTap: () {
+                      final item = _items[index];
+                      if (currentLocation == item.route) {
+                        return;
+                      }
+
+                      if (item.usesPush && currentLocation == AppRoutes.home) {
+                        context.push(item.route);
+                      } else {
+                        context.go(item.route);
+                      }
+                    },
                   ),
-            ),
-            iconTheme: WidgetStateProperty.all(
-              const IconThemeData(color: AppColors.neutral900, size: 28),
-            ),
-          ),
-          child: NavigationBar(
-            height: 86,
-            selectedIndex: currentIndex < 0 ? 0 : currentIndex,
-            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            onDestinationSelected: (index) => context.go(_items[index].route),
-            destinations: [
-              for (final item in _items)
-                NavigationDestination(
-                  icon: Icon(item.icon),
-                  selectedIcon: Icon(item.activeIcon),
-                  label: item.label,
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomNavButton extends StatelessWidget {
+  const _BottomNavButton({
+    required this.item,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final _BottomNavItem item;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelText = Text(
+      item.label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+        color: AppColors.neutral900,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 14, bottom: 20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? item.activeIcon : item.icon,
+              color: AppColors.neutral900,
+              size: 22,
+            ),
+            const SizedBox(height: 3),
+            item.heroTag != null
+                ? Hero(
+                    tag: item.heroTag!,
+                    flightShuttleBuilder:
+                        (context, animation, direction, fromCtx, toCtx) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: toCtx.widget,
+                          );
+                        },
+                    child: Material(
+                      color: Colors.transparent,
+                      child: labelText,
+                    ),
+                  )
+                : labelText,
+          ],
         ),
       ),
     );
@@ -97,10 +160,14 @@ class _BottomNavItem {
     required this.icon,
     required this.activeIcon,
     required this.route,
+    this.heroTag,
+    this.usesPush = false,
   });
 
   final String label;
   final IconData icon;
   final IconData activeIcon;
   final String route;
+  final String? heroTag;
+  final bool usesPush;
 }

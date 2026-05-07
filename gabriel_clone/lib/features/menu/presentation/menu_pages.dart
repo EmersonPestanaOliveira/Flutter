@@ -1,0 +1,37 @@
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../core/auth/auth_service.dart';
+import '../../../core/design_system/app_colors.dart';
+import '../../../core/design_system/app_spacing.dart';
+import '../../../core/design_system/components/app_button.dart';
+import '../../../core/di/injection_container.dart';
+import '../../../core/network/backend_error_mapper.dart';
+import '../../../core/router/app_routes.dart';
+import '../../../core/widgets/app_error_notifier.dart';
+
+part 'widgets/edit_profile_page.dart';
+part 'widgets/edit_profile_actions.dart';
+part 'widgets/edit_profile_photo_actions.dart';
+part 'widgets/edit_profile_delete_actions.dart';
+part 'widgets/edit_profile_errors.dart';
+part 'widgets/edit_profile_header_avatar.dart';
+part 'widgets/edit_profile_fields.dart';
+part 'widgets/menu_validators.dart';
+part 'widgets/add_place_page.dart';
+part 'widgets/add_place_find_actions.dart';
+part 'widgets/add_place_finish_actions.dart';
+part 'widgets/add_place_widgets.dart';
+part 'widgets/legacy_add_place_page.dart';
+part 'widgets/menu_errors.dart';
+part 'widgets/technical_support_page.dart';
+part 'widgets/legal_widgets.dart';
+part 'widgets/about_page.dart';
+part 'widgets/faq_page.dart';
+part 'widgets/menu_shared_scaffolds.dart';
