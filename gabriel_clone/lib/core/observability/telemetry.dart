@@ -25,6 +25,9 @@ import 'package:flutter/foundation.dart';
 /// - sync.item_success              — item sincronizado
 /// - sync.item_failed               — item falhou
 /// - sync.attachments_cleaned       — attachments removidos após sync
+/// - sync.background_started        — WorkManager iniciou no background
+/// - sync.background_finished       — WorkManager terminou no background
+/// - sync.network_recovered_trigger — rede voltou e disparou sync
 ///
 /// ### UX / Formulário
 /// - form.submit_started        — botão enviar pressionado
@@ -49,8 +52,7 @@ class Telemetry {
   FirebaseCrashlytics get _crash =>
       _crashlytics ?? FirebaseCrashlytics.instance;
 
-  FirebasePerformance get _perf =>
-      _performance ?? FirebasePerformance.instance;
+  FirebasePerformance get _perf => _performance ?? FirebasePerformance.instance;
 
   /// Inicia uma trace de performance Firebase e executa [body].
   ///
@@ -114,8 +116,7 @@ class Telemetry {
     const _blocklist = {'email', 'name', 'phone', 'address', 'content', 'text'};
     return {
       for (final e in params.entries)
-        if (!_blocklist.contains(e.key.toLowerCase()))
-          e.key: e.value,
+        if (!_blocklist.contains(e.key.toLowerCase())) e.key: e.value,
     };
   }
 }
@@ -141,6 +142,9 @@ abstract final class TelemetryEvents {
   static const syncItemSuccess = 'sync.item_success';
   static const syncItemFailed = 'sync.item_failed';
   static const syncAttachmentsCleaned = 'sync.attachments_cleaned';
+  static const syncBackgroundStarted = 'sync.background_started';
+  static const syncBackgroundFinished = 'sync.background_finished';
+  static const syncNetworkRecoveredTrigger = 'sync.network_recovered_trigger';
 
   // UX / Formulário
   static const formSubmitStarted = 'form.submit_started';

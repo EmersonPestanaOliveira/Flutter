@@ -32,6 +32,8 @@ final class HomeLoaded extends HomeState {
     this.currentZoom = 13.0,
     this.selectedAlerta,
     this.isLoadingPins = false,
+    this.showMapUpdateIndicator = false,
+    this.incrementalErrorMessage,
   });
 
   final List<Camera> cameras;
@@ -49,13 +51,17 @@ final class HomeLoaded extends HomeState {
 
   /// `true` enquanto uma query de viewport está em andamento.
   final bool isLoadingPins;
+  final bool showMapUpdateIndicator;
+  final String? incrementalErrorMessage;
 
   /// Alertas filtrados pelos critérios ativos (pura função).
   List<Alerta> get filteredAlertas => applyFilter(alertas, filter);
 
   /// Clusters calculados para o zoom atual — determinístico e testável.
-  List<AlertaCluster> get clusters =>
-      AlertaClusterService.cluster(filteredAlertas, currentZoom);
+  AlertaClusterResult get clusterResult =>
+      AlertaClusterService.build(filteredAlertas, currentZoom);
+
+  List<AlertaCluster> get clusters => clusterResult.clusters;
 
   HomeLoaded copyWith({
     List<Camera>? cameras,
@@ -66,6 +72,8 @@ final class HomeLoaded extends HomeState {
     double? currentZoom,
     Object? selectedAlerta = _sentinel,
     bool? isLoadingPins,
+    bool? showMapUpdateIndicator,
+    Object? incrementalErrorMessage = _sentinel,
   }) {
     return HomeLoaded(
       cameras: cameras ?? this.cameras,
@@ -77,6 +85,11 @@ final class HomeLoaded extends HomeState {
       selectedAlerta:
           selectedAlerta == _sentinel ? this.selectedAlerta : selectedAlerta as Alerta?,
       isLoadingPins: isLoadingPins ?? this.isLoadingPins,
+      showMapUpdateIndicator:
+          showMapUpdateIndicator ?? this.showMapUpdateIndicator,
+      incrementalErrorMessage: incrementalErrorMessage == _sentinel
+          ? this.incrementalErrorMessage
+          : incrementalErrorMessage as String?,
     );
   }
 
@@ -90,6 +103,8 @@ final class HomeLoaded extends HomeState {
         currentZoom,
         selectedAlerta,
         isLoadingPins,
+        showMapUpdateIndicator,
+        incrementalErrorMessage,
       ];
 }
 

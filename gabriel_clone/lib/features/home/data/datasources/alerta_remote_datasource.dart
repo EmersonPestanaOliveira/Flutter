@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../../core/geo/geo_utils.dart';
 import '../../../../core/network/backend_error_mapper.dart';
+import '../../../../core/observability/telemetry.dart';
 import '../../domain/entities/alerta_filter.dart';
 import '../../domain/enums/alerta_tipo.dart';
 import '../models/alerta_model.dart';
@@ -17,9 +18,11 @@ abstract interface class AlertaRemoteDatasource {
 }
 
 class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
-  const AlertaRemoteDatasourceImpl(this.firestore);
+  const AlertaRemoteDatasourceImpl(this.firestore, {Telemetry? telemetry})
+      : _telemetry = telemetry;
 
   final FirebaseFirestore firestore;
+  final Telemetry? _telemetry;
 
   /// Limite máximo de documentos por query (evita over-fetch em produção).
   static const int _maxPerRange = 500;
@@ -60,8 +63,14 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
     required AlertaFilter filter,
     required double zoom,
   }) async {
+    var rangeCount = 0;
     try {
       final ranges = GeoUtils.geohashRangesForBounds(bounds, zoom: zoom);
+      rangeCount = ranges.length;
+      _telemetry?.log('map.geohash_ranges_built', params: {
+        'rangeCount': ranges.length,
+        'zoom': zoom.toStringAsFixed(1),
+      });
 
       if (ranges.isEmpty) {
         return [];
@@ -84,6 +93,12 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
       }
 
       if (alertas.isEmpty) {
+        _logFallbackUsed(
+          reason: 'empty_geohash_result',
+          filter: filter,
+          rangeCount: ranges.length,
+          fallbackUsed: true,
+        );
         debugPrint(
           '[AlertaDatasource] Nenhum alerta em ${ranges.length} ranges. '
           'Usando fallback.',
@@ -93,9 +108,76 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
 
       return alertas;
     } catch (e) {
+      final missingIndex = _isMissingIndexError(e);
+      if (missingIndex) {
+        _telemetry?.log(
+          'missing_firestore_index',
+          params: _queryTelemetryParams(
+            filter: filter,
+            rangeCount: rangeCount,
+            fallbackUsed: true,
+          ),
+        );
+      }
+      _logFallbackUsed(
+        reason: missingIndex ? 'missing_firestore_index' : 'query_error',
+        filter: filter,
+        rangeCount: rangeCount,
+        errorType: e.runtimeType.toString(),
+        fallbackUsed: true,
+      );
       debugPrint('[AlertaDatasource] Erro na query por bounds: $e');
       return _fallbackInBounds(bounds, filter);
     }
+  }
+
+  bool _isMissingIndexError(Object error) {
+    if (error is FirebaseException && error.code == 'failed-precondition') {
+      return true;
+    }
+    final message = error.toString().toLowerCase();
+    return message.contains('index') || message.contains('failed-precondition');
+  }
+
+  void _logFallbackUsed({
+    required String reason,
+    required AlertaFilter filter,
+    required int rangeCount,
+    required bool fallbackUsed,
+    String? errorType,
+  }) {
+    final params = _queryTelemetryParams(
+      filter: filter,
+      rangeCount: rangeCount,
+      fallbackUsed: fallbackUsed,
+    );
+    _telemetry?.log('alertas_query_fallback_used', params: {
+      ...params,
+      'reason': reason,
+      if (errorType != null) 'errorType': errorType,
+    });
+    _telemetry?.log('map.viewport_query_fallback', params: {
+      ...params,
+      'reason': reason,
+      if (errorType != null) 'errorType': errorType,
+    });
+  }
+
+  Map<String, Object?> _queryTelemetryParams({
+    required AlertaFilter filter,
+    required int rangeCount,
+    required bool fallbackUsed,
+  }) {
+    return {
+      'collection': 'alertas',
+      'rangeCount': rangeCount,
+      'hasTypeFilter': filter.tipos.isNotEmpty,
+      'typeFilterCount': filter.tipos.length,
+      'hasDateFilter': filter.dateFrom != null || filter.dateTo != null,
+      'hasDateFrom': filter.dateFrom != null,
+      'hasDateTo': filter.dateTo != null,
+      'fallbackUsed': fallbackUsed,
+    };
   }
 
   Future<List<AlertaModel>> _queryRange(
@@ -158,6 +240,7 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
   ///
   /// AVISO: este fallback NÃO deve ser acionado em produção com > 5k docs.
   /// Configure o índice de geohash no Firestore antes do lançamento.
+  /// Veja docs/firestore_indexes.md para os indices compostos esperados.
   Future<List<AlertaModel>> _fallbackInBounds(
     GeoBounds bounds,
     AlertaFilter filter,

@@ -16,10 +16,15 @@ class HomePinReadiness {
   }) {
     final areCurrentPinsReady = pinsKey != null &&
         ((readyPinsKey == pinsKey && arePinsReady) || didForceHomeReady);
-    return !didLoadPreferences ||
-        state is HomeInitial ||
-        state is HomeLoading ||
-        (loadedState != null && (!isMapReady || !areCurrentPinsReady));
+    if (!didLoadPreferences || state is HomeInitial || state is HomeLoading) {
+      return true;
+    }
+    if (loadedState == null) {
+      return true;
+    }
+    final hasUsefulPins =
+        loadedState.cameras.isNotEmpty || loadedState.alertas.isNotEmpty;
+    return !hasUsefulPins && (!isMapReady || !areCurrentPinsReady);
   }
 
   void markMapReady() {

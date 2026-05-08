@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:dartz/dartz.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/database/app_database.dart';
@@ -197,23 +195,6 @@ class OcorrenciaRepositoryImpl implements OcorrenciaRepository {
     } catch (e) {
       await _local.markFailed(clientId, e.toString());
       debugPrint('[OcorrenciaRepo] Sync imediato falhou para $clientId: $e');
-    }
-  }
-
-  /// Remove os arquivos locais de um clientId após sync bem-sucedido.
-  ///
-  /// SEGURANÇA: só é chamado após [markSynced] confirmar sucesso.
-  Future<void> _cleanupAttachments(String clientId) async {
-    try {
-      final docsDir = await getApplicationDocumentsDirectory();
-      final attachDir = Directory('${docsDir.path}/ocorrencias/$clientId');
-      if (await attachDir.exists()) {
-        await attachDir.delete(recursive: true);
-        debugPrint('[OcorrenciaRepo] Attachments removidos para $clientId');
-      }
-    } catch (e) {
-      // Limpeza falhou — não crítico, não propaga
-      debugPrint('[OcorrenciaRepo] Falha ao limpar attachments $clientId: $e');
     }
   }
 

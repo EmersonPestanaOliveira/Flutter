@@ -15,6 +15,7 @@ class HomeMapView extends StatelessWidget {
     required this.onAlertClose,
     required this.onAlertDeselect,
     required this.onMapCreated,
+    this.onAlertRetry,
     this.onCameraMove,
     this.onCameraIdle,
     super.key,
@@ -28,6 +29,7 @@ class HomeMapView extends StatelessWidget {
   final VoidCallback onAlertClose;
   final VoidCallback onAlertDeselect;
   final ValueChanged<GoogleMapController> onMapCreated;
+  final Future<bool> Function(Alerta alerta)? onAlertRetry;
   final void Function(CameraPosition position)? onCameraMove;
   final VoidCallback? onCameraIdle;
 
@@ -58,6 +60,11 @@ class HomeMapView extends StatelessWidget {
             child: AlertPreviewCard(
               alerta: selectedAlert!,
               onClose: onAlertClose,
+              onRetry: onAlertRetry == null
+                  ? null
+                  : (_) async {
+                      await onAlertRetry!(selectedAlert!);
+                    },
             ),
           ),
       ],

@@ -28,6 +28,7 @@ class HomeMap extends StatefulWidget {
     this.onMapCreated,
     this.onCameraIdle,
     this.onPinsReady,
+    this.onAlertRetry,
     super.key,
   });
 
@@ -39,6 +40,7 @@ class HomeMap extends StatefulWidget {
   final void Function(GoogleMapController controller)? onMapCreated;
   final void Function(LatLngBounds bounds, double zoom)? onCameraIdle;
   final VoidCallback? onPinsReady;
+  final Future<bool> Function(Alerta alerta)? onAlertRetry;
 
   @override
   State<HomeMap> createState() => _HomeMapState();
@@ -50,8 +52,9 @@ class _HomeMapState extends State<HomeMap> {
   final DangerZoneService _dangerZoneService = sl<DangerZoneService>();
   final DangerZoneLocationMonitor _dangerZoneLocationMonitor =
       sl<DangerZoneLocationMonitor>();
-  final Telemetry? _telemetry =
-      sl.isRegistered<Telemetry>() ? sl<Telemetry>() : null;
+  final Telemetry? _telemetry = sl.isRegistered<Telemetry>()
+      ? sl<Telemetry>()
+      : null;
   GoogleMapController? _mapController;
   Set<Marker> _cameraMarkers = const {};
   Set<Marker> _alertMarkers = const {};
@@ -98,7 +101,9 @@ class _HomeMapState extends State<HomeMap> {
       widget.alertClusters,
     );
 
-    if (alertasChanged || clustersChanged || (tabChanged && widget.tabIndex == 1)) {
+    if (alertasChanged ||
+        clustersChanged ||
+        (tabChanged && widget.tabIndex == 1)) {
       _rebuildAlertMarkers();
     }
 
@@ -200,13 +205,27 @@ class _HomeMapState extends State<HomeMap> {
   }
 
   Future<Set<Marker>> _buildAlertMarkers() async {
-    final clusters = widget.alertClusters ??
-        AlertaClusterService.cluster(
-          widget.alertas
-              .where((alerta) => alerta.latitude != 0 && alerta.longitude != 0)
-              .toList(growable: false),
-          _currentZoom,
-        );
+    final visibleAlertas = widget.alertas
+        .where((alerta) => alerta.latitude != 0 && alerta.longitude != 0)
+        .toList(growable: false);
+    final clusterResult = widget.alertClusters == null
+        ? AlertaClusterService.build(visibleAlertas, _currentZoom)
+        : null;
+    final clusters = widget.alertClusters ?? clusterResult!.clusters;
+
+    if (clusterResult != null) {
+      _telemetry?.log(
+        'map.clusters_built',
+        params: {
+          'clusteringEnabled': clusterResult.enabled,
+          'clusterDecisionReason': clusterResult.reason,
+          'clusterCount': clusterResult.clusterCount,
+          'individualPinCount': clusterResult.individualPinCount,
+          'elapsedMs': clusterResult.elapsedMs,
+          'pinCount': visibleAlertas.length,
+        },
+      );
+    }
 
     final markers = await Future.wait(
       clusters.map(
@@ -215,6 +234,7 @@ class _HomeMapState extends State<HomeMap> {
           icons: _alertPinIcons,
           onPinTap: (alerta) => setState(() => _selectedAlert = alerta),
           onClusterTap: _zoomIntoCluster,
+          telemetry: _telemetry,
         ),
       ),
     );
@@ -318,6 +338,7 @@ class _HomeMapState extends State<HomeMap> {
           setState(() => _selectedAlert = null);
         }
       },
+      onAlertRetry: _handleAlertRetry,
       onMapCreated: (controller) {
         _mapController = controller;
         widget.onMapCreated?.call(controller);
@@ -327,5 +348,25 @@ class _HomeMapState extends State<HomeMap> {
       onCameraMove: (position) => _currentZoom = position.zoom,
       onCameraIdle: _handleCameraIdle,
     );
+  }
+
+  Future<bool> _handleAlertRetry(Alerta alerta) async {
+    final retry = widget.onAlertRetry;
+    if (retry == null) {
+      return false;
+    }
+    final didStartRetry = await retry(alerta);
+    if (!mounted || !didStartRetry) {
+      return didStartRetry;
+    }
+    if (_selectedAlert?.mergeKey == alerta.mergeKey) {
+      setState(() {
+        _selectedAlert = alerta.copyWith(
+          localSyncStatus: 'queued',
+          localError: null,
+        );
+      });
+    }
+    return didStartRetry;
   }
 }

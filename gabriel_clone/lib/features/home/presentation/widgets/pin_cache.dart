@@ -1,10 +1,11 @@
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../../core/observability/telemetry.dart';
 import '../../domain/enums/alerta_tipo.dart';
+import 'alert_pin_factory.dart';
 
 /// Cache estático de [BitmapDescriptor] para pins individuais e clusters.
 ///
@@ -13,6 +14,7 @@ import '../../domain/enums/alerta_tipo.dart';
 /// - Cluster      : `'cluster_${bucket}'` onde bucket ∈ {1, 10, 50, 100, 500}
 abstract final class PinCache {
   static final Map<String, BitmapDescriptor> _cache = {};
+  static final Map<AlertaTipo, int> _hitCountByTipo = {};
 
   // ---------------------------------------------------------------------------
   // Pins individuais (AlertaTipo)
@@ -24,10 +26,61 @@ abstract final class PinCache {
     return _cache['pin_${tipo.name}'];
   }
 
+  static Future<BitmapDescriptor> resolveAlertPin(
+    AlertaTipo tipo, {
+    Map<AlertaTipo, BitmapDescriptor> preloadedPins = const {},
+    Telemetry? telemetry,
+    int hitSampleRate = 50,
+    Future<BitmapDescriptor> Function(AlertaTipo tipo)? createDescriptor,
+  }) async {
+    final key = 'pin_${tipo.name}';
+    final cached = _cache[key];
+    if (cached != null) {
+      _logSampledHit(tipo, telemetry, hitSampleRate);
+      return cached;
+    }
+
+    telemetry?.log(
+      TelemetryEvents.mapIconCacheMiss,
+      params: {'tipo': tipo.name},
+    );
+    final preloaded = preloadedPins[tipo];
+    final descriptor =
+        preloaded ??
+        await (createDescriptor ?? _createAlertDescriptor).call(tipo);
+    _cache[key] = descriptor;
+    return descriptor;
+  }
+
   /// Armazena todos os pins de alerta carregados de uma vez.
   static void storeAlertPins(Map<AlertaTipo, BitmapDescriptor> pins) {
     for (final entry in pins.entries) {
       _cache['pin_${entry.key.name}'] = entry.value;
+    }
+  }
+
+  static Future<BitmapDescriptor> _createAlertDescriptor(
+    AlertaTipo tipo,
+  ) async {
+    final bytes = await AlertPinFactory.createBytes(tipo);
+    // ignore: deprecated_member_use
+    return BitmapDescriptor.fromBytes(bytes);
+  }
+
+  static void _logSampledHit(
+    AlertaTipo tipo,
+    Telemetry? telemetry,
+    int hitSampleRate,
+  ) {
+    if (telemetry == null) return;
+    final sampleRate = hitSampleRate <= 0 ? 1 : hitSampleRate;
+    final count = (_hitCountByTipo[tipo] ?? 0) + 1;
+    _hitCountByTipo[tipo] = count;
+    if (count == 1 || count % sampleRate == 0) {
+      telemetry.log(
+        TelemetryEvents.mapIconCacheHit,
+        params: {'tipo': tipo.name, 'sampleRate': sampleRate},
+      );
     }
   }
 
@@ -134,9 +187,10 @@ abstract final class PinCache {
   }
 
   /// Limpa o cache (útil em testes).
-  static void clear() => _cache.clear();
+  static void clear() {
+    _cache.clear();
+    _hitCountByTipo.clear();
+  }
 }
 
 // Importação circular evitada — AlertPinFactory é separado
-// ignore: unused_import
-extension _Unused on math.Random {}

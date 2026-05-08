@@ -110,6 +110,7 @@ class _HomeViewState extends State<HomeView> {
               onCurrentLocationPressed: _goToCurrentLocation,
               onHelpPressed: () => showHomeHelpOptions(context),
               onRetry: context.read<HomeCubit>().loadData,
+              onAlertRetry: _retryMapOcorrencia,
             );
           },
         ),

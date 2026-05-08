@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../../core/observability/telemetry.dart';
 import '../../domain/entities/alerta.dart';
 import '../../domain/entities/alerta_cluster.dart';
 import '../../domain/entities/camera.dart';
 import '../../domain/enums/alerta_tipo.dart';
-import 'alert_pin_factory.dart';
 import 'pin_cache.dart';
 
 abstract final class HomeMarkerFactory {
@@ -24,50 +24,61 @@ abstract final class HomeMarkerFactory {
     );
   }
 
-  static Marker alerta({
+  static Future<Marker> alerta({
     required Alerta alerta,
     required Map<AlertaTipo, BitmapDescriptor> icons,
     required ValueChanged<Alerta> onTap,
-  }) {
+    Telemetry? telemetry,
+  }) async {
     return Marker(
       markerId: MarkerId('alerta_${alerta.id}'),
       position: LatLng(alerta.latitude, alerta.longitude),
-      icon: _alertIcon(alerta, icons),
+      icon: await _alertIcon(alerta, icons, telemetry),
       anchor: const Offset(0.5, 0.5),
       infoWindow: alerta.isLocalPending
           ? InfoWindow(
               title: _localStatusTitle(alerta.localSyncStatus),
-              snippet: alerta.localError == null ? null : 'Toque em Minhas ocorrencias para retry',
+              snippet: alerta.localError == null
+                  ? null
+                  : 'Abra Minhas ocorrencias para tentar novamente',
             )
           : InfoWindow.noText,
       onTap: () => onTap(alerta),
     );
   }
 
-  static BitmapDescriptor _alertIcon(
+  static Future<BitmapDescriptor> _alertIcon(
     Alerta alerta,
     Map<AlertaTipo, BitmapDescriptor> icons,
-  ) {
+    Telemetry? telemetry,
+  ) async {
     return switch (alerta.localSyncStatus) {
       'failed' || 'deadLetter' => BitmapDescriptor.defaultMarkerWithHue(
-          BitmapDescriptor.hueRed,
-        ),
+        BitmapDescriptor.hueRed,
+      ),
       'syncing' => BitmapDescriptor.defaultMarkerWithHue(
-          BitmapDescriptor.hueAzure,
-        ),
+        BitmapDescriptor.hueAzure,
+      ),
+      'synced' => BitmapDescriptor.defaultMarkerWithHue(
+        BitmapDescriptor.hueGreen,
+      ),
       'queued' => BitmapDescriptor.defaultMarkerWithHue(
-          BitmapDescriptor.hueYellow,
-        ),
-      _ => icons[alerta.tipo] ??
-          BitmapDescriptor.defaultMarkerWithHue(AlertPinFactory.hue(alerta.tipo)),
+        BitmapDescriptor.hueYellow,
+      ),
+      _ => await PinCache.resolveAlertPin(
+        alerta.tipo,
+        preloadedPins: icons,
+        telemetry: telemetry,
+      ),
     };
   }
 
   static String _localStatusTitle(String? status) {
     return switch (status) {
       'syncing' => 'Relato sincronizando',
+      'synced' => 'Relato sincronizado',
       'failed' => 'Relato com falha',
-      'deadLetter' => 'Relato aguardando retry',
+      'deadLetter' => 'Relato precisa de acao',
       _ => 'Relato pendente',
     };
   }
@@ -77,6 +88,7 @@ abstract final class HomeMarkerFactory {
     required Map<AlertaTipo, BitmapDescriptor> icons,
     required ValueChanged<Alerta> onPinTap,
     required ValueChanged<AlertaCluster> onClusterTap,
+    Telemetry? telemetry,
   }) async {
     final alerta = cluster.singleAlerta;
     if (alerta != null) {
@@ -84,6 +96,7 @@ abstract final class HomeMarkerFactory {
         alerta: alerta,
         icons: icons,
         onTap: onPinTap,
+        telemetry: telemetry,
       );
     }
 

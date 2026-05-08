@@ -5,7 +5,12 @@ import 'package:flutter/foundation.dart';
 
 enum NetworkConnectionStatus { unknown, online, offline, poor }
 
-class NetworkConnectionMonitor extends ChangeNotifier {
+abstract interface class NetworkStatusListenable implements Listenable {
+  NetworkConnectionStatus get status;
+}
+
+class NetworkConnectionMonitor extends ChangeNotifier
+    implements NetworkStatusListenable {
   NetworkConnectionMonitor({
     Duration checkInterval = const Duration(seconds: 20),
     Duration timeout = const Duration(seconds: 3),
@@ -23,6 +28,7 @@ class NetworkConnectionMonitor extends ChangeNotifier {
   Timer? _timer;
   NetworkConnectionStatus _status = NetworkConnectionStatus.unknown;
 
+  @override
   NetworkConnectionStatus get status => _status;
 
   /// Callback acionado na transição de offline/poor/unknown → online.

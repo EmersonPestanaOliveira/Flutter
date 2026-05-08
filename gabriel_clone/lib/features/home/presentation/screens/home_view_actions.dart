@@ -138,6 +138,31 @@ extension _HomeViewActions on _HomeViewState {
     await goToCurrentLocation(context: context, controller: _mapController);
   }
 
+  Future<bool> _retryMapOcorrencia(Alerta alerta) async {
+    final clientId = alerta.clientId;
+    if (clientId == null || clientId.trim().isEmpty) {
+      return false;
+    }
+
+    final didStartRetry =
+        await context.read<HomeCubit>().retryOcorrencia(clientId.trim());
+    if (!mounted) {
+      return didStartRetry;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          didStartRetry
+              ? 'Tentando enviar novamente'
+              : 'Não foi possível tentar novamente agora',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    return didStartRetry;
+  }
+
   void _markPinsDirty({bool setStateAlreadyCalled = false}) {
     if (setStateAlreadyCalled) {
       _pinReadiness.markDirty();

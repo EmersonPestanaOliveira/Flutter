@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../features/ocorrencias/data/datasources/ocorrencia_local_datasource.dart';
 import '../../features/ocorrencias/data/datasources/ocorrencia_remote_datasource.dart';
@@ -184,8 +183,20 @@ class OcorrenciaSyncWorker {
           );
           attempts++;
         }
+        _telemetry.log('sync.dead_letter', params: {
+          'clientId': _safeId(item.clientId),
+          'reason': 'permanent_${e.runtimeType}',
+          'attempt': item.attemptCount + 1,
+        });
       } else {
         await _local.markFailed(item.clientId, e.runtimeType.toString());
+        if (item.attemptCount + 1 >= PendingOcorrenciasDao.maxAttempts) {
+          _telemetry.log('sync.dead_letter', params: {
+            'clientId': _safeId(item.clientId),
+            'reason': e.runtimeType.toString(),
+            'attempt': item.attemptCount + 1,
+          });
+        }
       }
 
       return false;
@@ -206,17 +217,11 @@ class OcorrenciaSyncWorker {
       final storage = _attachmentStorage;
       if (storage != null) {
         await storage.cleanup(clientId);
-      } else {
-        final docsDir = await getApplicationDocumentsDirectory();
-        final attachDir = Directory('${docsDir.path}/ocorrencias/$clientId');
-        if (await attachDir.exists()) {
-          await attachDir.delete(recursive: true);
-        }
+        _telemetry.log(
+          'sync.attachments_cleaned',
+          params: {'clientId': _safeId(clientId)},
+        );
       }
-      _telemetry.log(
-        'sync.attachments_cleaned',
-        params: {'clientId': _safeId(clientId)},
-      );
     } catch (e) {
       // Limpeza não é crítica — não propaga, apenas loga
       debugPrint('[SyncWorker] Falha ao limpar attachments: ${e.runtimeType}');

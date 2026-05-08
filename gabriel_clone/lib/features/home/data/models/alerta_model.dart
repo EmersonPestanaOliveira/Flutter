@@ -15,6 +15,7 @@ class AlertaModel extends Alerta {
     required super.tipo,
     required super.latitude,
     required super.longitude,
+    super.clientId,
   });
 
   factory AlertaModel.fromFirestore(
@@ -36,6 +37,7 @@ class AlertaModel extends Alerta {
       tipo: alertaTipoFromString(rawType),
       latitude: location.latitude,
       longitude: location.longitude,
+      clientId: data['clientId'] as String? ?? doc.id,
     );
   }
 
@@ -46,6 +48,7 @@ class AlertaModel extends Alerta {
       'data': Timestamp.fromDate(data),
       'descricao': descricao,
       'tipo': tipo.label,
+      'clientId': clientId ?? id,
       'localizacao': GeoPoint(latitude, longitude),
       'geohash': GeoUtils.geohash(latitude, longitude),
     };

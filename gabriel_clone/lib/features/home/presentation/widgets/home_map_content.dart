@@ -40,6 +40,7 @@ class HomeMapContent extends StatelessWidget {
     required this.onCurrentLocationPressed,
     required this.onHelpPressed,
     required this.onRetry,
+    this.onAlertRetry,
     super.key,
   });
 
@@ -69,9 +70,12 @@ class HomeMapContent extends StatelessWidget {
   final VoidCallback onCurrentLocationPressed;
   final VoidCallback onHelpPressed;
   final VoidCallback onRetry;
+  final Future<bool> Function(Alerta alerta)? onAlertRetry;
 
   @override
   Widget build(BuildContext context) {
+    final helpButtonWidth = MediaQuery.sizeOf(context).width < 430 ? 184.0 : 340.0;
+
     return Stack(
       children: [
         Positioned.fill(child: _buildMap()),
@@ -100,6 +104,21 @@ class HomeMapContent extends StatelessWidget {
           bottom: bottomPadding + 80,
           child: HomeHelpButton(onPressed: onHelpPressed),
         ),
+        if (loadedState?.showMapUpdateIndicator ?? false)
+          Positioned(
+            right: horizontalPadding + helpButtonWidth + 12,
+            bottom: bottomPadding + 90,
+            child: _MapUpdateIndicator(),
+          ),
+        if (loadedState?.incrementalErrorMessage != null)
+          Positioned(
+            left: horizontalPadding,
+            right: horizontalPadding,
+            bottom: bottomPadding + 160,
+            child: _MapUpdateError(
+              message: loadedState!.incrementalErrorMessage!,
+            ),
+          ),
         if (showLoading) const Positioned.fill(child: AppLoadingIndicator()),
         if (state is HomeError)
           Positioned.fill(
@@ -125,6 +144,7 @@ class HomeMapContent extends StatelessWidget {
       onMapCreated: onMapCreated,
       onCameraIdle: onCameraIdle,
       onPinsReady: onPinsReady,
+      onAlertRetry: onAlertRetry,
     );
   }
 
@@ -154,6 +174,63 @@ class HomeMapContent extends StatelessWidget {
         hasActiveFilters: hasActiveAlertFilters,
         onSearchChanged: onAlertSearchChanged,
         onClear: onClearAlertFilters,
+      ),
+    );
+  }
+}
+
+class _MapUpdateIndicator extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.72),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Atualizando mapa',
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MapUpdateError extends StatelessWidget {
+  const _MapUpdateError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.70),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+        ),
       ),
     );
   }

@@ -1,21 +1,24 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../../core/database/app_database.dart';
 import '../../../../core/errors/failure_x.dart';
 import '../../../../core/geo/geo_utils.dart';
 import '../../../../core/observability/telemetry.dart';
 import '../../../../core/types/app_result.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../../../../core/database/app_database.dart';
 import '../../../ocorrencias/data/datasources/ocorrencia_local_datasource.dart';
+import '../../../ocorrencias/domain/usecases/watch_my_ocorrencias_usecase.dart';
 import '../../domain/entities/alerta.dart';
 import '../../domain/entities/alerta_filter.dart';
 import '../../domain/entities/camera.dart';
 import '../../domain/enums/alerta_tipo.dart';
+import '../../domain/services/alerta_pin_merge_service.dart';
 import '../../domain/usecases/get_alertas_in_bounds_usecase.dart';
 import '../../domain/usecases/get_alertas_usecase.dart';
 import '../../domain/usecases/get_cameras_usecase.dart';
@@ -25,13 +28,13 @@ class HomeCubit extends Cubit<HomeState> {
   HomeCubit(
     this.getCamerasUseCase,
     this.getAlertasUseCase,
-    this.getAlertasInBoundsUseCase,
-    {
-      Telemetry? telemetry,
-      OcorrenciaLocalDatasource? localOcorrencias,
-    },
-  )  : _telemetry = telemetry,
+    this.getAlertasInBoundsUseCase, {
+    Telemetry? telemetry,
+    OcorrenciaLocalDatasource? localOcorrencias,
+    RetryFailedOcorrenciaUseCase? retryFailedOcorrenciaUseCase,
+  })  : _telemetry = telemetry,
         _localOcorrencias = localOcorrencias,
+        _retryFailedOcorrenciaUseCase = retryFailedOcorrenciaUseCase,
         super(const HomeInitial());
 
   final GetCamerasUseCase getCamerasUseCase;
@@ -39,14 +42,39 @@ class HomeCubit extends Cubit<HomeState> {
   final GetAlertasInBoundsUseCase getAlertasInBoundsUseCase;
   final Telemetry? _telemetry;
   final OcorrenciaLocalDatasource? _localOcorrencias;
+  final RetryFailedOcorrenciaUseCase? _retryFailedOcorrenciaUseCase;
 
   bool _initialAlertMapEnabled = true;
   Timer? _cameraIdleDebounce;
+  Timer? _mapUpdateIndicatorTimer;
+  Timer? _incrementalErrorTimer;
   StreamSubscription<List<PendingOcorrencia>>? _pendingSubscription;
   List<Alerta> _localPendingAlertas = const [];
+  final Map<String, Alerta> _recentlySyncedAlertas = {};
+  final Map<String, Timer> _recentlySyncedTimers = {};
+  Map<String, Alerta> _lastLocalAlertasByKey = const {};
+  int _viewportQuerySeq = 0;
 
-  // Cache para evitar re-fetch com mesmo bounds+zoom+filter
-  GeoBounds? _lastBounds;
+  /// Pins remotos acumulados ao longo da sessao (chave = `mergeKey`).
+  ///
+  /// Cada query por viewport adiciona/atualiza entradas; nada e removido a
+  /// menos que o filtro mude. Isso garante que pins ja carregados nao
+  /// "sumem" quando o usuario faz pan e a query nova retorna so o novo
+  /// recorte do mapa — o resultado em tela e a uniao dos viewports visitados.
+  final Map<String, Alerta> _accumulatedRemote = {};
+
+  /// Buffer aplicado ao viewport antes de consultar pins.
+  ///
+  /// Carregamos uma area maior do que a visivel para que pan/zoom curtos
+  /// nao disparem nova query (o usuario ja tem os pins do "anel" externo
+  /// pre-carregados em memoria) e os pins nao "piscam" ao rolar o mapa.
+  ///
+  /// Razao 0.5 = 50% extra em cada lado → area 2.25x do viewport visivel.
+  static const double _viewportBufferRatio = 0.5;
+
+  // Cache do bounds JA EXPANDIDO usado na ultima query, para detectar
+  // quando o viewport corrente ainda esta totalmente coberto.
+  GeoBounds? _lastExpandedBounds;
   double? _lastZoom;
   AlertaFilter? _lastFilter;
   LatLngBounds? _currentViewport;
@@ -94,10 +122,21 @@ class HomeCubit extends Cubit<HomeState> {
       },
     );
 
+    // Popula acumulador para que viewport-fetches subsequentes apenas
+    // adicionem pins novos em vez de descartar os ja carregados.
+    _accumulatedRemote.clear();
+    for (final alerta in alertas) {
+      _accumulatedRemote[alerta.mergeKey] = alerta;
+    }
+    // Marca o filtro inicial sob o qual o acumulador foi construido. Se o
+    // usuario aplicar um filtro depois, _fetchInBounds detecta a mudanca e
+    // descarta as entradas antigas que nao casam mais.
+    _lastFilter = const AlertaFilter();
+
     emit(
       HomeLoaded(
         cameras: cameras,
-        alertas: _mergeLocalPending(alertas),
+        alertas: _mergePins().alertas,
         isAlertMapEnabled: _initialAlertMapEnabled,
       ),
     );
@@ -109,14 +148,19 @@ class HomeCubit extends Cubit<HomeState> {
     if (local == null) return;
 
     _pendingSubscription = local.watchPending().listen((items) {
-      _localPendingAlertas = items
+      final nextLocalAlertas = items
           .map(_pendingToAlerta)
           .whereType<Alerta>()
           .toList(growable: false);
+      _bridgeRecentlySyncedPins(nextLocalAlertas);
+      _localPendingAlertas = nextLocalAlertas;
+      _lastLocalAlertasByKey = {
+        for (final alerta in nextLocalAlertas) alerta.mergeKey: alerta,
+      };
       final currentState = state;
       if (currentState is HomeLoaded) {
         emit(currentState.copyWith(
-          alertas: _mergeLocalPending(currentState.alertas),
+          alertas: _mergePins().alertas,
         ));
       }
       _telemetry?.log(
@@ -126,15 +170,45 @@ class HomeCubit extends Cubit<HomeState> {
     });
   }
 
-  List<Alerta> _mergeLocalPending(List<Alerta> remoteAlertas) {
-    if (_localPendingAlertas.isEmpty) return remoteAlertas;
-    final remoteOnly =
-        remoteAlertas.where((alerta) => !alerta.isLocalPending).toList();
-    final remoteIds = remoteOnly.map((alerta) => alerta.id).toSet();
-    final localOnly = _localPendingAlertas
-        .where((alerta) => !remoteIds.contains(alerta.id))
-        .toList(growable: false);
-    return [...remoteOnly, ...localOnly];
+  /// Mescla os pins remotos acumulados com os locais (pendentes + recem
+  /// sincronizados que ainda estao no bridge de transicao).
+  AlertaPinMergeResult _mergePins() {
+    return AlertaPinMergeService.merge(
+      remoteAlertas: _accumulatedRemote.values.toList(growable: false),
+      localAlertas: [
+        ..._recentlySyncedAlertas.values,
+        ..._localPendingAlertas,
+      ],
+    );
+  }
+
+  void _bridgeRecentlySyncedPins(List<Alerta> nextLocalAlertas) {
+    final nextKeys = nextLocalAlertas.map((alerta) => alerta.mergeKey).toSet();
+    for (final entry in _lastLocalAlertasByKey.entries) {
+      if (nextKeys.contains(entry.key)) continue;
+      final previous = entry.value;
+      final status = previous.localSyncStatus;
+      if (status == PendingStatus.syncing.name ||
+          status == PendingStatus.queued.name) {
+        _recentlySyncedAlertas[entry.key] = previous.copyWith(
+          localSyncStatus: PendingStatus.synced.name,
+          localError: null,
+        );
+        _recentlySyncedTimers[entry.key]?.cancel();
+        _recentlySyncedTimers[entry.key] = Timer(
+          const Duration(seconds: 20),
+          () {
+            if (isClosed) return;
+            _recentlySyncedAlertas.remove(entry.key);
+            _recentlySyncedTimers.remove(entry.key);
+            final currentState = state;
+            if (currentState is HomeLoaded) {
+              emit(currentState.copyWith(alertas: _mergePins().alertas));
+            }
+          },
+        );
+      }
+    }
   }
 
   Alerta? _pendingToAlerta(PendingOcorrencia item) {
@@ -142,6 +216,7 @@ class HomeCubit extends Cubit<HomeState> {
       final payload = jsonDecode(item.payloadJson) as Map<String, dynamic>;
       return Alerta(
         id: item.clientId,
+        clientId: item.clientId,
         bairro: '',
         cidade: '',
         data: DateTime.tryParse(payload['quando'] as String? ?? '') ??
@@ -213,6 +288,50 @@ class HomeCubit extends Cubit<HomeState> {
     emit(currentState.copyWith(selectedAlerta: null));
   }
 
+  Future<bool> retryOcorrencia(String clientId) async {
+    final useCase = _retryFailedOcorrenciaUseCase;
+    final normalizedClientId = clientId.trim();
+    if (useCase == null || normalizedClientId.isEmpty) {
+      _telemetry?.log('map.offline_retry_unavailable', params: {
+        'hasUseCase': useCase != null,
+      });
+      return false;
+    }
+
+    try {
+      final localStatus = _localPendingAlertas
+          .where((alerta) => alerta.clientId == normalizedClientId)
+          .map((alerta) => alerta.localSyncStatus ?? 'unknown')
+          .fold<String?>(null, (previous, value) => previous ?? value);
+      _telemetry?.log('map.offline_retry_requested', params: {
+        'status': localStatus,
+      });
+      await useCase(normalizedClientId);
+      _telemetry?.log('map.offline_retry_started');
+
+      final currentState = state;
+      if (currentState is HomeLoaded) {
+        final nextAlertas = currentState.alertas
+            .map(
+              (alerta) => alerta.clientId == normalizedClientId
+                  ? alerta.copyWith(
+                      localSyncStatus: PendingStatus.queued.name,
+                      localError: null,
+                    )
+                  : alerta,
+            )
+            .toList(growable: false);
+        emit(currentState.copyWith(alertas: nextAlertas));
+      }
+      return true;
+    } catch (error) {
+      _telemetry?.log('map.offline_retry_failed', params: {
+        'errorType': error.runtimeType.toString(),
+      });
+      return false;
+    }
+  }
+
   void onClusterTapped(double clusterLat, double clusterLon) {
     _telemetry?.log('map.cluster_tapped');
     // A UI deve usar esta sinalização para animar o zoom
@@ -240,7 +359,7 @@ class HomeCubit extends Cubit<HomeState> {
     final bounds = _currentViewport;
     final zoom = _currentViewportZoom;
     if (bounds != null && zoom != null) {
-      unawaited(_fetchInBounds(bounds, zoom, force: true));
+      unawaited(_fetchInBounds(bounds, zoom, force: true, reason: 'filter'));
     }
   }
 
@@ -261,7 +380,7 @@ class HomeCubit extends Cubit<HomeState> {
     _cameraIdleDebounce?.cancel();
     _cameraIdleDebounce = Timer(
       const Duration(milliseconds: 300),
-      () => _fetchInBounds(bounds, zoom),
+      () => _fetchInBounds(bounds, zoom, reason: 'camera_idle'),
     );
   }
 
@@ -269,25 +388,38 @@ class HomeCubit extends Cubit<HomeState> {
     LatLngBounds bounds,
     double zoom, {
     bool force = false,
+    String reason = 'viewport',
   }) async {
     final currentState = state;
     if (currentState is! HomeLoaded) return;
 
-    final geoBounds = GeoBounds(
+    final viewportBounds = GeoBounds(
       south: bounds.southwest.latitude,
       west: bounds.southwest.longitude,
       north: bounds.northeast.latitude,
       east: bounds.northeast.longitude,
     );
 
-    // Cache hit: mesmos bounds, zoom e filtro → não re-busca
-    if (_lastBounds != null &&
+    // Expande o viewport para pre-carregar um anel externo. Pan curto
+    // continua dentro do bounds expandido anterior e nao dispara query.
+    final expandedBounds = _expandBounds(bounds, _viewportBufferRatio);
+
+    // Cache hit: viewport visivel ainda totalmente coberto pelo bounds
+    // expandido da query anterior + zoom proximo + mesmo filtro.
+    if (_lastExpandedBounds != null &&
         _lastZoom != null &&
         _lastFilter != null &&
-        _boundsEqual(geoBounds, _lastBounds!) &&
+        _isViewportInside(viewportBounds, _lastExpandedBounds!) &&
         (zoom - _lastZoom!).abs() < 0.5 &&
         currentState.filter == _lastFilter &&
         !force) {
+      _telemetry?.log(
+        'map.viewport_query_skipped',
+        params: {
+          'reason': 'covered_by_buffer',
+          'zoom': zoom.toStringAsFixed(1),
+        },
+      );
       // Atualiza apenas o zoom para re-clusterizar
       if (currentState.currentZoom != zoom) {
         emit(currentState.copyWith(currentZoom: zoom));
@@ -295,12 +427,27 @@ class HomeCubit extends Cubit<HomeState> {
       return;
     }
 
-    emit(currentState.copyWith(isLoadingPins: true, currentZoom: zoom));
+    final queryId = ++_viewportQuerySeq;
+    _telemetry?.log(
+      'map.viewport_query_started',
+      params: {
+        'queryId': queryId,
+        'reason': reason,
+        'zoom': zoom.toStringAsFixed(1),
+        'bufferRatio': _viewportBufferRatio,
+      },
+    );
+    _scheduleMapUpdateIndicator(queryId);
+    emit(currentState.copyWith(
+      isLoadingPins: true,
+      currentZoom: zoom,
+      incrementalErrorMessage: null,
+    ));
 
     final loadStart = DateTime.now().millisecondsSinceEpoch;
     final result = await getAlertasInBoundsUseCase(
       GetAlertasInBoundsParams(
-        bounds: bounds,
+        bounds: _toLatLngBounds(expandedBounds),
         zoom: zoom,
         filter: currentState.filter,
       ),
@@ -308,26 +455,69 @@ class HomeCubit extends Cubit<HomeState> {
 
     result.fold(
       (failure) {
+        if (queryId != _viewportQuerySeq) {
+          _telemetry?.log(
+            'map.viewport_query_discarded',
+            params: {'queryId': queryId, 'reason': 'failure_obsolete'},
+          );
+          return;
+        }
         if (kDebugMode) {
           debugPrint('[HomeCubit] Falha na query por bounds: ${failure.message}');
         }
-        _telemetry?.log('map.viewport_query_failed');
+        _hideMapUpdateIndicator();
+        _telemetry?.log(
+          'map.viewport_query_failed',
+          params: {'queryId': queryId, 'reason': reason},
+        );
         final latestState = state;
         if (latestState is HomeLoaded) {
-          emit(latestState.copyWith(isLoadingPins: false));
+          emit(latestState.copyWith(
+            isLoadingPins: false,
+            showMapUpdateIndicator: false,
+            incrementalErrorMessage: 'Nao foi possivel atualizar o mapa.',
+          ));
+          _scheduleIncrementalErrorClear();
         }
       },
       (alertas) {
-        final mergedAlertas = _mergeLocalPending(alertas);
+        if (queryId != _viewportQuerySeq) {
+          _telemetry?.log(
+            'map.viewport_query_discarded',
+            params: {'queryId': queryId, 'reason': 'success_obsolete'},
+          );
+          return;
+        }
+        _hideMapUpdateIndicator();
+
+        // Filtro mudou desde a ultima query bem-sucedida → o que estava
+        // acumulado pode nao casar com o filtro novo. Esvazia antes de
+        // reabastecer com o novo recorte. (`_lastFilter` e populado em
+        // `loadData`, entao nao precisa de null-check aqui.)
+        final filterChanged = _lastFilter != currentState.filter;
+        if (filterChanged) {
+          _accumulatedRemote.clear();
+        }
+
+        // Mescla pins novos com os ja acumulados (chave = mergeKey).
+        // Atualiza entradas existentes com os dados mais recentes do servidor.
+        final addedCount = alertas.length;
+        final beforeCount = _accumulatedRemote.length;
+        for (final alerta in alertas) {
+          _accumulatedRemote[alerta.mergeKey] = alerta;
+        }
+        final accumulatedDelta = _accumulatedRemote.length - beforeCount;
+
+        final mergeResult = _mergePins();
+        final mergedAlertas = mergeResult.alertas;
         final elapsed = DateTime.now().millisecondsSinceEpoch - loadStart;
         final clusterStart = DateTime.now().millisecondsSinceEpoch;
-        final clusterCount = currentState
+        final clusterResult = currentState
             .copyWith(alertas: mergedAlertas, currentZoom: zoom)
-            .clusters
-            .length;
+            .clusterResult;
         final clusterElapsed =
             DateTime.now().millisecondsSinceEpoch - clusterStart;
-        _lastBounds = geoBounds;
+        _lastExpandedBounds = expandedBounds;
         _lastZoom = zoom;
         _lastFilter = currentState.filter;
 
@@ -336,37 +526,119 @@ class HomeCubit extends Cubit<HomeState> {
           params: {
             'zoom': zoom.toStringAsFixed(1),
             'pinCount': mergedAlertas.length,
-            'remotePinCount': alertas.length,
-            'localPendingPinCount': _localPendingAlertas.length,
+            'queryReturnedPinCount': addedCount,
+            'newPinsAdded': accumulatedDelta,
+            'accumulatedRemoteSize': _accumulatedRemote.length,
+            'remotePinCount': mergeResult.remoteCount,
+            'localMergedPinCount': mergeResult.localCount,
+            'deduplicatedPinCount': mergeResult.deduplicatedCount,
+            'finalRenderedPinCount': mergedAlertas.length,
+            'filterChangedReset': filterChanged,
             'elapsedMs': elapsed,
-            'clusterCount': clusterCount,
+            'clusteringEnabled': clusterResult.enabled,
+            'clusterDecisionReason': clusterResult.reason,
+            'clusterCount': clusterResult.clusterCount,
+            'individualPinCount': clusterResult.individualPinCount,
             'clusterElapsedMs': clusterElapsed,
           },
         );
         final latestState = state;
         if (latestState is HomeLoaded) {
+          _incrementalErrorTimer?.cancel();
           emit(latestState.copyWith(
             alertas: mergedAlertas,
             currentZoom: zoom,
             isLoadingPins: false,
+            showMapUpdateIndicator: false,
+            incrementalErrorMessage: null,
           ));
         }
       },
     );
   }
 
-  bool _boundsEqual(GeoBounds a, GeoBounds b) {
-    const epsilon = 0.001;
-    return (a.south - b.south).abs() < epsilon &&
-        (a.north - b.north).abs() < epsilon &&
-        (a.west - b.west).abs() < epsilon &&
-        (a.east - b.east).abs() < epsilon;
+  void _scheduleMapUpdateIndicator(int queryId) {
+    _mapUpdateIndicatorTimer?.cancel();
+    _mapUpdateIndicatorTimer = Timer(const Duration(milliseconds: 320), () {
+      if (isClosed) return;
+      if (queryId != _viewportQuerySeq) return;
+      final currentState = state;
+      if (currentState is HomeLoaded && currentState.isLoadingPins) {
+        emit(currentState.copyWith(showMapUpdateIndicator: true));
+      }
+    });
+  }
+
+  void _hideMapUpdateIndicator() {
+    _mapUpdateIndicatorTimer?.cancel();
+    _mapUpdateIndicatorTimer = null;
+  }
+
+  void _scheduleIncrementalErrorClear() {
+    _incrementalErrorTimer?.cancel();
+    _incrementalErrorTimer = Timer(const Duration(seconds: 4), () {
+      if (isClosed) return;
+      final currentState = state;
+      if (currentState is HomeLoaded) {
+        emit(currentState.copyWith(incrementalErrorMessage: null));
+      }
+    });
+  }
+
+  /// Expande [bounds] em [ratio] vezes em cada eixo (lat e lon).
+  ///
+  /// `ratio = 0.5` adiciona 50% extra em cada lado → area 2.25x do original.
+  /// Pre-carregar esse "anel externo" deixa pan/zoom curtos sem nova query.
+  GeoBounds _expandBounds(LatLngBounds bounds, double ratio) {
+    final ne = bounds.northeast;
+    final sw = bounds.southwest;
+    final latSpan = ne.latitude - sw.latitude;
+    final lonSpan = ne.longitude - sw.longitude;
+    final dLat = latSpan * ratio;
+    final dLon = lonSpan * ratio;
+    return GeoBounds(
+      south: math.max(sw.latitude - dLat, -90.0),
+      north: math.min(ne.latitude + dLat, 90.0),
+      // Para o caso de Brasil/SP nao precisamos tratar wrap em ±180.
+      // Se o app for usado em rotas que cruzam o antimeridiano, ajustar.
+      west: sw.longitude - dLon,
+      east: ne.longitude + dLon,
+    );
+  }
+
+  /// Verifica se o viewport visivel esta totalmente contido em [outer].
+  ///
+  /// Quando true, o resultado em cache ja cobre o que o usuario ve e nao
+  /// e preciso refazer a query. Containment estrito (so [_floatEpsilon] de
+  /// folga para precisao de ponto flutuante) — qualquer faixa do viewport
+  /// fora de [outer] significa pins potencialmente faltantes na borda e
+  /// dispara re-fetch.
+  static const double _floatEpsilon = 1e-6;
+
+  bool _isViewportInside(GeoBounds viewport, GeoBounds outer) {
+    return viewport.south >= outer.south - _floatEpsilon &&
+        viewport.north <= outer.north + _floatEpsilon &&
+        viewport.west >= outer.west - _floatEpsilon &&
+        viewport.east <= outer.east + _floatEpsilon;
+  }
+
+  /// Converte [GeoBounds] para [LatLngBounds] (sem wrap de longitude).
+  LatLngBounds _toLatLngBounds(GeoBounds bounds) {
+    return LatLngBounds(
+      southwest: LatLng(bounds.south, bounds.west),
+      northeast: LatLng(bounds.north, bounds.east),
+    );
   }
 
   @override
   Future<void> close() {
     _cameraIdleDebounce?.cancel();
+    _mapUpdateIndicatorTimer?.cancel();
+    _incrementalErrorTimer?.cancel();
     _pendingSubscription?.cancel();
+    for (final timer in _recentlySyncedTimers.values) {
+      timer.cancel();
+    }
     return super.close();
   }
 }

@@ -12,6 +12,7 @@ import '../observability/telemetry.dart';
 import '../profile/profile_photo_cache.dart';
 import '../security/attachment_storage.dart';
 import '../security/local_payload_crypto.dart';
+import '../sync/ocorrencia_sync_orchestrator.dart';
 import '../sync/ocorrencia_sync_worker.dart';
 import '../../features/home/data/datasources/alerta_remote_datasource.dart';
 import '../../features/home/data/datasources/camera_remote_datasource.dart';
@@ -53,9 +54,7 @@ Future<void> setupLocator() async {
     ..registerLazySingleton<FirebaseAuth>(() => FirebaseAuth.instance)
     ..registerLazySingleton<FirebaseFirestore>(() => FirebaseFirestore.instance)
     ..registerLazySingleton<FirebaseStorage>(() => FirebaseStorage.instance)
-    ..registerLazySingleton(
-      () => ProfilePhotoCache(sl()),
-    )
+    ..registerLazySingleton(() => ProfilePhotoCache(sl()))
     ..registerLazySingleton(
       () => AuthService(
         firebaseAuth: sl(),
@@ -64,7 +63,6 @@ Future<void> setupLocator() async {
         profilePhotoCache: sl(),
       ),
     )
-
     // ── Security ──────────────────────────────────────────────────────────
     ..registerLazySingleton<LocalCryptoKeyStore>(
       () => const SecureStorageLocalCryptoKeyStore(),
@@ -75,7 +73,6 @@ Future<void> setupLocator() async {
     ..registerLazySingleton<AttachmentStorage>(
       () => EncryptedAttachmentStorage(documentsDir.path, sl()),
     )
-
     // ── Danger Zones ──────────────────────────────────────────────────────
     ..registerLazySingleton(DangerZoneRemoteConfigService.new)
     ..registerLazySingleton(DangerZoneNotificationService.new)
@@ -90,13 +87,12 @@ Future<void> setupLocator() async {
       ),
     )
     ..registerLazySingleton(() => FirebaseConnectionValidator(firestore: sl()))
-
     // ── Home feature ──────────────────────────────────────────────────────
     ..registerLazySingleton<CameraRemoteDatasource>(
       () => CameraRemoteDatasourceImpl(sl()),
     )
     ..registerLazySingleton<AlertaRemoteDatasource>(
-      () => AlertaRemoteDatasourceImpl(sl()),
+      () => AlertaRemoteDatasourceImpl(sl(), telemetry: sl()),
     )
     ..registerLazySingleton<CameraRepository>(() => CameraRepositoryImpl(sl()))
     ..registerLazySingleton<AlertaRepository>(() => AlertaRepositoryImpl(sl()))
@@ -111,15 +107,12 @@ Future<void> setupLocator() async {
         sl(),
         telemetry: sl(),
         localOcorrencias: sl(),
+        retryFailedOcorrenciaUseCase: sl(),
       ),
     )
-
     // ── Database (SQLite) ─────────────────────────────────────────────────
     ..registerLazySingleton(AppDatabase.new)
-    ..registerLazySingleton(
-      () => sl<AppDatabase>().pendingOcorrenciasDao,
-    )
-
+    ..registerLazySingleton(() => sl<AppDatabase>().pendingOcorrenciasDao)
     // ── Ocorrencias feature ───────────────────────────────────────────────
     ..registerLazySingleton<OcorrenciaLocalDatasource>(
       () => OcorrenciaLocalDatasourceImpl(sl<PendingOcorrenciasDao>(), sl()),
@@ -130,6 +123,7 @@ Future<void> setupLocator() async {
         auth: sl(),
         storage: sl(),
         attachmentStorage: sl(),
+        telemetry: sl(),
       ),
     )
     ..registerLazySingleton<OcorrenciaRepository>(
@@ -149,15 +143,20 @@ Future<void> setupLocator() async {
         attachmentStorage: sl(),
       ),
     )
+    ..registerLazySingleton(
+      () => OcorrenciaSyncOrchestrator(
+        network: sl<NetworkConnectionMonitor>(),
+        syncPendingOcorrencias:
+            sl<OcorrenciaSyncWorker>().syncPendingOcorrencias,
+        telemetry: sl(),
+      ),
+    )
     ..registerFactory(() => CreateOcorrenciaUseCase(sl()))
     ..registerFactory(() => WatchMyOcorrenciasUseCase(sl()))
     ..registerFactory(() => WatchPendingOcorrenciasUseCase(sl()))
     ..registerFactory(() => RetryFailedOcorrenciaUseCase(sl()))
     // OcorrenciaFormCubit — factory para nova instância por tela
     ..registerFactory(
-      () => OcorrenciaFormCubit(
-        createUseCase: sl(),
-        telemetry: sl(),
-      ),
+      () => OcorrenciaFormCubit(createUseCase: sl(), telemetry: sl()),
     );
 }

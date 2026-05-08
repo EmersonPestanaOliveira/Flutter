@@ -4,7 +4,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:record/record.dart';
+import 'package:uuid/data.dart';
 import 'package:uuid/uuid.dart';
+import 'package:uuid/v4.dart';
 
 import 'package:gabriel_clone/core/errors/failures.dart';
 import 'package:gabriel_clone/core/observability/telemetry.dart';
@@ -29,17 +31,23 @@ class _FakeTelemetry extends Telemetry {
   const _FakeTelemetry();
 
   @override
-  Future<T> trace<T>(String name, Future<T> Function() body,
-          {Map<String, String> attributes = const {},
-          Map<String, int> metrics = const {}}) =>
-      body();
+  Future<T> trace<T>(
+    String name,
+    Future<T> Function() body, {
+    Map<String, String> attributes = const {},
+    Map<String, int> metrics = const {},
+  }) => body();
 
   @override
   void log(String event, {Map<String, Object?> params = const {}}) {}
 
   @override
-  void recordError(Object error, StackTrace stackTrace,
-      {String? reason, bool fatal = false}) {}
+  void recordError(
+    Object error,
+    StackTrace stackTrace, {
+    String? reason,
+    bool fatal = false,
+  }) {}
 }
 
 /// Stub de AudioRecorder que não acessa nada de plataforma.
@@ -74,8 +82,7 @@ class _FakeImagePicker extends Fake implements ImagePicker {
     int? imageQuality,
     bool requestFullMetadata = true,
     int? limit,
-  }) async =>
-      filesToReturn;
+  }) async => filesToReturn;
 }
 
 /// Uuid determinístico para testes.
@@ -108,13 +115,13 @@ OcorrenciaFormCubit _makeCubit({
 /// Retorna um [OcorrenciaFormData] completamente preenchido que passa em
 /// [canSubmit].
 OcorrenciaFormData _validData() => const OcorrenciaFormData(
-      description: 'Descrição da ocorrência',
-      selectedLocation: LatLng(-23.5, -46.6),
-      date: null, // será sobrescrito via cubit
-      time: '10:00',
-      acknowledgesPoliceReport: true,
-      acceptsPrivacy: true,
-    ).copyWith(date: DateTime(2026, 5, 6));
+  description: 'Descrição da ocorrência',
+  selectedLocation: LatLng(-23.5, -46.6),
+  date: null, // será sobrescrito via cubit
+  time: '10:00',
+  acknowledgesPoliceReport: true,
+  acceptsPrivacy: true,
+).copyWith(date: DateTime(2026, 5, 6));
 
 // ---------------------------------------------------------------------------
 // Testes
@@ -205,9 +212,11 @@ void main() {
       final file1 = XFile('/tmp/img1.jpg');
       final file2 = XFile('/tmp/img2.jpg');
       // Injeta estado com media diretamente via emit
-      cubit.emit(OcorrenciaFormIdle(
-        formData: const OcorrenciaFormData().copyWith(media: [file1, file2]),
-      ));
+      cubit.emit(
+        OcorrenciaFormIdle(
+          formData: const OcorrenciaFormData().copyWith(media: [file1, file2]),
+        ),
+      );
       cubit.removeMedia(0);
       final state = cubit.state as OcorrenciaFormIdle;
       expect(state.formData.media, [file2]);
@@ -252,10 +261,7 @@ void main() {
     tearDown(() => cubit.close());
 
     test('adiciona imagens selecionadas ao formData.media', () async {
-      imagePicker.filesToReturn = [
-        XFile('/tmp/a.jpg'),
-        XFile('/tmp/b.jpg'),
-      ];
+      imagePicker.filesToReturn = [XFile('/tmp/a.jpg'), XFile('/tmp/b.jpg')];
       await cubit.pickImages();
       final state = cubit.state as OcorrenciaFormIdle;
       expect(state.formData.media.length, 2);
@@ -287,15 +293,17 @@ void main() {
       expect(state.message, isNotEmpty);
     });
 
-    test('submit com dados válidos emite SavedOffline em caso de sucesso',
-        () async {
-      useCase.result = const Right('generated-client-id');
-      _seedValidState(cubit);
-      await cubit.submit();
-      expect(cubit.state, isA<OcorrenciaFormSavedOffline>());
-      final state = cubit.state as OcorrenciaFormSavedOffline;
-      expect(state.clientId, 'generated-client-id');
-    });
+    test(
+      'submit com dados válidos emite SavedOffline em caso de sucesso',
+      () async {
+        useCase.result = const Right('generated-client-id');
+        _seedValidState(cubit);
+        await cubit.submit();
+        expect(cubit.state, isA<OcorrenciaFormSavedOffline>());
+        final state = cubit.state as OcorrenciaFormSavedOffline;
+        expect(state.clientId, 'generated-client-id');
+      },
+    );
 
     test('submit emite estados: Saving → SavedOffline em ordem', () async {
       useCase.result = const Right('client-xyz');
@@ -310,15 +318,17 @@ void main() {
       expect(states.last, isA<OcorrenciaFormSavedOffline>());
     });
 
-    test('submit emite OcorrenciaFormError quando use case retorna failure',
-        () async {
-      useCase.result = Left(const UnknownFailure());
-      _seedValidState(cubit);
-      await cubit.submit();
-      expect(cubit.state, isA<OcorrenciaFormError>());
-      final state = cubit.state as OcorrenciaFormError;
-      expect(state.message, isNotEmpty);
-    });
+    test(
+      'submit emite OcorrenciaFormError quando use case retorna failure',
+      () async {
+        useCase.result = Left(const UnknownFailure());
+        _seedValidState(cubit);
+        await cubit.submit();
+        expect(cubit.state, isA<OcorrenciaFormError>());
+        final state = cubit.state as OcorrenciaFormError;
+        expect(state.message, isNotEmpty);
+      },
+    );
   });
 }
 
