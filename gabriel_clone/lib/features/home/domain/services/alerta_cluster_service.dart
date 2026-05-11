@@ -52,12 +52,16 @@ abstract final class AlertaClusterService {
   static List<AlertaCluster> cluster(
     List<Alerta> alertas,
     double zoom, {
-    int minClusterSize = 3,
+    int minClusterSize = 2,
   }) {
     return build(
       alertas,
       zoom,
-      policy: ClusterPolicy(minClusterSize: minClusterSize),
+      policy: ClusterPolicy(
+        minPinsToEnableClustering: minClusterSize,
+        minClusterSize: minClusterSize,
+        forceIndividualPinsWhenBelowThreshold: false,
+      ),
     ).clusters;
   }
 
@@ -90,13 +94,9 @@ abstract final class AlertaClusterService {
       0,
       (max, group) => math.max(max, group.length),
     );
-    final reason = _decisionReason(
-      alertas.length,
-      largestGroup,
-      zoom,
-      policy,
-    );
-    final enabled = reason == ClusterDecisionReasons.enabledHighDensity ||
+    final reason = _decisionReason(alertas.length, largestGroup, zoom, policy);
+    final enabled =
+        reason == ClusterDecisionReasons.enabledHighDensity ||
         reason == ClusterDecisionReasons.enabledHighVolume;
 
     final clusters = enabled
@@ -132,10 +132,17 @@ abstract final class AlertaClusterService {
     return ClusterDecisionReasons.densityTooLow;
   }
 
-  static Map<String, List<Alerta>> _groupByCell(List<Alerta> alertas, double zoom) {
+  static Map<String, List<Alerta>> _groupByCell(
+    List<Alerta> alertas,
+    double zoom,
+  ) {
     final cells = <String, List<Alerta>>{};
     for (final alerta in alertas) {
-      final cell = GeoUtils.clusterCell(alerta.latitude, alerta.longitude, zoom);
+      final cell = GeoUtils.clusterCell(
+        alerta.latitude,
+        alerta.longitude,
+        zoom,
+      );
       cells.putIfAbsent(cell, () => []).add(alerta);
     }
     return cells;
@@ -177,7 +184,12 @@ abstract final class AlertaClusterService {
     double zoom,
   ) {
     return alertas
-        .map((alerta) => _pin(alerta, GeoUtils.clusterCell(alerta.latitude, alerta.longitude, zoom)))
+        .map(
+          (alerta) => _pin(
+            alerta,
+            GeoUtils.clusterCell(alerta.latitude, alerta.longitude, zoom),
+          ),
+        )
         .toList(growable: false);
   }
 

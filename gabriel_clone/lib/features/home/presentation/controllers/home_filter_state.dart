@@ -1,4 +1,5 @@
 import '../../domain/enums/alerta_tipo.dart';
+import '../widgets/alert_filters_sheet.dart';
 
 class HomeFilterState {
   const HomeFilterState({
@@ -9,7 +10,7 @@ class HomeFilterState {
     this.alertQuery = '',
     this.selectedAlertBairro,
     this.selectedAlertCidade,
-    this.selectedAlertDateKey,
+    this.selectedAlertPeriodo,
     this.selectedAlertTipo,
   });
 
@@ -20,7 +21,7 @@ class HomeFilterState {
   final String alertQuery;
   final String? selectedAlertBairro;
   final String? selectedAlertCidade;
-  final String? selectedAlertDateKey;
+  final AlertPeriodo? selectedAlertPeriodo;
   final AlertaTipo? selectedAlertTipo;
 
   bool get hasActiveCameraFilters =>
@@ -33,7 +34,7 @@ class HomeFilterState {
       alertQuery.trim().isNotEmpty ||
       selectedAlertBairro != null ||
       selectedAlertCidade != null ||
-      selectedAlertDateKey != null ||
+      selectedAlertPeriodo != null ||
       selectedAlertTipo != null;
 
   HomeFilterState copyWith({
@@ -44,7 +45,7 @@ class HomeFilterState {
     String? alertQuery,
     Object? selectedAlertBairro = _sentinel,
     Object? selectedAlertCidade = _sentinel,
-    Object? selectedAlertDateKey = _sentinel,
+    Object? selectedAlertPeriodo = _sentinel,
     Object? selectedAlertTipo = _sentinel,
   }) {
     return HomeFilterState(
@@ -65,9 +66,9 @@ class HomeFilterState {
       selectedAlertCidade: selectedAlertCidade == _sentinel
           ? this.selectedAlertCidade
           : selectedAlertCidade as String?,
-      selectedAlertDateKey: selectedAlertDateKey == _sentinel
-          ? this.selectedAlertDateKey
-          : selectedAlertDateKey as String?,
+      selectedAlertPeriodo: selectedAlertPeriodo == _sentinel
+          ? this.selectedAlertPeriodo
+          : selectedAlertPeriodo as AlertPeriodo?,
       selectedAlertTipo: selectedAlertTipo == _sentinel
           ? this.selectedAlertTipo
           : selectedAlertTipo as AlertaTipo?,

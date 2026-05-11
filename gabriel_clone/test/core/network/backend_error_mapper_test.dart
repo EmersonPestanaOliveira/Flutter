@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gabriel_clone/core/errors/failure_x.dart';
 import 'package:gabriel_clone/core/errors/failures.dart';
 import 'package:gabriel_clone/core/network/backend_error_code.dart';
 import 'package:gabriel_clone/core/network/backend_error_mapper.dart';

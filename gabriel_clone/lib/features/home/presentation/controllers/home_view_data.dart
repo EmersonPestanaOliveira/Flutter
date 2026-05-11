@@ -58,7 +58,6 @@ List<Alerta> _filteredAlertas(HomeLoaded? state, HomeFilterState filters) {
     query: filters.alertQuery,
     bairro: filters.selectedAlertBairro,
     cidade: filters.selectedAlertCidade,
-    dateKey: filters.selectedAlertDateKey,
     tipo: filters.selectedAlertTipo,
   );
 }

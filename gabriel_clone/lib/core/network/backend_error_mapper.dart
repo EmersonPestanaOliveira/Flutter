@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/services.dart';
 
@@ -13,7 +12,7 @@ abstract final class BackendErrorMapper {
       return error;
     }
 
-    if (error is SocketException) {
+    if (_isSocketException(error)) {
       return OfflineFailure(log: error);
     }
 
@@ -59,4 +58,10 @@ abstract final class BackendErrorMapper {
   }
 
   static String message(Object error) => toFailure(error).errorCode.message;
+
+  static bool _isSocketException(Object error) {
+    final type = error.runtimeType.toString().toLowerCase();
+    final message = error.toString().toLowerCase();
+    return type.contains('socketexception') || message.contains('socket');
+  }
 }

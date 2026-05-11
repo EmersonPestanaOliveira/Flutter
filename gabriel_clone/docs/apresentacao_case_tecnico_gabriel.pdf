@@ -1,0 +1,221 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+4 0 obj
+<< /Length 3698 >>
+stream
+BT /F2 22 Tf 48 793.89 Td (Case Tecnico Gabriel: Mapa Comunitario) Tj ET
+BT /F1 11 Tf 48 755.99 Td (Roteiro de apresentacao tecnica com arquitetura, decisoes, analogias e fluxos.) Tj ET
+BT /F1 11 Tf 48 736.04 Td (Abertura sugerida: Eu pensei o Mapa Comunitario como duas funcionalidades que precisam) Tj ET
+BT /F1 11 Tf 48 720.09 Td (conversar muito bem: primeiro, o usuario precisa conseguir registrar uma ocorrencia) Tj ET
+BT /F1 11 Tf 48 704.14 Td (mesmo sem internet; segundo, o mapa precisa continuar fluido mesmo com muitos pins. Por) Tj ET
+BT /F1 11 Tf 48 688.19 Td (isso a arquitetura gira em torno de tres ideias: offline-first, carregamento por) Tj ET
+BT /F1 11 Tf 48 672.24 Td (viewport e observabilidade.) Tj ET
+48.00 620.29 499.28 38.00 re S
+BT /F3 9 Tf 58 638.29 Td (Usuario -> App Flutter -> Fila local SQLite -> Sync Worker -> Firestore + Storage) Tj ET
+BT /F3 9 Tf 58 625.24 Td (                         \\-> Mapa Comunitario <- Alertas remotos + pendentes locais) Tj ET
+BT /F2 16 Tf 48 599.19 Td (1. Offline-First) Tj ET
+BT /F1 11 Tf 48 573.99 Td (O ponto principal e que a UI nao depende da rede para confirmar o relato. Quando o) Tj ET
+BT /F1 11 Tf 48 558.04 Td (usuario envia uma ocorrencia, o app gera um clientId, salva o payload no SQLite,) Tj ET
+BT /F1 11 Tf 48 542.09 Td (persiste os anexos e retorna sucesso local. O envio real acontece depois, pelo sync.) Tj ET
+BT /F1 11 Tf 48 522.14 Td (Por que SQLite? Para uma fila local pequena e critica, SQL explicito e simples,) Tj ET
+BT /F1 11 Tf 48 506.19 Td (auditavel e facil de testar em memoria.) Tj ET
+BT /F1 11 Tf 48 486.24 Td (Por que clientId? Para idempotencia. O clientId funciona como numero de protocolo: se o) Tj ET
+BT /F1 11 Tf 48 470.29 Td (sync tentar enviar duas vezes, ele grava no mesmo documento remoto em vez de duplicar a) Tj ET
+BT /F1 11 Tf 48 454.34 Td (ocorrencia.) Tj ET
+BT /F1 11 Tf 48 434.39 Td (Analogia: o app e como uma agencia dos Correios. Mesmo sem internet, o usuario entrega) Tj ET
+BT /F1 11 Tf 48 418.44 Td (a carta. Ela fica numa caixa local segura. Quando a conexao volta, um funcionario tenta) Tj ET
+BT /F1 11 Tf 48 402.49 Td (enviar.) Tj ET
+48.00 324.54 499.28 64.00 re S
+BT /F3 9 Tf 58 368.54 Td (Formulario -> UseCase -> Repository -> SQLite Outbox) Tj ET
+BT /F3 9 Tf 58 355.49 Td (                                  -> sucesso local para UI) Tj ET
+BT /F3 9 Tf 58 342.44 Td () Tj ET
+BT /F3 9 Tf 58 329.39 Td (SyncWorker -> busca queued/failed -> Firestore + Storage -> markSynced -> cleanup) Tj ET
+BT /F2 16 Tf 48 303.34 Td (2. Seguranca Local) Tj ET
+BT /F1 11 Tf 48 278.14 Td (O payload textual e numerico da ocorrencia e criptografado antes de ir para o SQLite. A) Tj ET
+BT /F1 11 Tf 48 262.19 Td (chave fica no secure storage. Os anexos ficam em armazenamento persistente proprio,) Tj ET
+BT /F1 11 Tf 48 246.24 Td (para sobreviver a restart do app.) Tj ET
+BT /F1 11 Tf 58 226.29 Td (- Payload textual: SQLite, criptografado.) Tj ET
+BT /F1 11 Tf 58 210.34 Td (- Anexos: arquivos persistidos localmente antes do upload.) Tj ET
+BT /F1 11 Tf 58 194.39 Td (- Upload: Firebase Storage no momento do sync.) Tj ET
+BT /F1 11 Tf 58 178.44 Td (- Documento final: Firestore usando clientId como ID.) Tj ET
+BT /F2 16 Tf 48 150.49 Td (3. Sync Resiliente) Tj ET
+BT /F1 11 Tf 48 125.29 Td (O sync tem tres gatilhos: tentativa imediata quando o app ja esta online, WorkManager) Tj ET
+BT /F1 11 Tf 48 109.34 Td (periodico e orquestrador quando a rede volta.) Tj ET
+BT /F1 11 Tf 48 89.39 Td (Por que backoff com jitter? Para evitar que muitos usuarios batam no backend ao mesmo) Tj ET
+BT /F1 11 Tf 48 73.44 Td (tempo quando a rede volta. Cada cliente espera um intervalo ligeiramente diferente.) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 3485 >>
+stream
+BT /F1 11 Tf 48 793.89 Td (Analogia: se uma central telefonica cai e volta, voce nao quer todo mundo ligando no) Tj ET
+BT /F1 11 Tf 48 777.94 Td (mesmo segundo. O backoff distribui essas tentativas.) Tj ET
+48.00 660.99 499.28 103.00 re S
+BT /F3 9 Tf 58 743.99 Td (SQLite queued/failed) Tj ET
+BT /F3 9 Tf 58 730.94 Td (        |) Tj ET
+BT /F3 9 Tf 58 717.89 Td (        v) Tj ET
+BT /F3 9 Tf 58 704.84 Td (SyncWorker -> tenta enviar) Tj ET
+BT /F3 9 Tf 58 691.79 Td (        |-- sucesso ----------> markSynced + limpa anexos) Tj ET
+BT /F3 9 Tf 58 678.74 Td (        |-- falha recuperavel -> backoff + retry) Tj ET
+BT /F3 9 Tf 58 665.69 Td (        |-- muitas falhas ----> deadLetter -> retry manual) Tj ET
+BT /F2 16 Tf 48 639.64 Td (4. Mapa Com Muitos Pins) Tj ET
+BT /F1 11 Tf 48 614.44 Td (O maior erro seria buscar todos os pins sempre. A solucao usa carregamento por) Tj ET
+BT /F1 11 Tf 48 598.49 Td (viewport: o app consulta apenas os alertas dentro da area visivel do mapa, com um) Tj ET
+BT /F1 11 Tf 48 582.54 Td (buffer ao redor.) Tj ET
+BT /F1 11 Tf 48 562.59 Td (Por que onCameraIdle? Durante o gesto, o mapa pode emitir muitos eventos. A app so) Tj ET
+BT /F1 11 Tf 48 546.64 Td (precisa agir quando o usuario para de mexer, reduzindo chamadas e processamento.) Tj ET
+BT /F1 11 Tf 48 526.69 Td (Por que buffer? Se o usuario arrasta pouco o mapa, a nova area visivel ainda esta) Tj ET
+BT /F1 11 Tf 48 510.74 Td (dentro da area ja carregada. Isso evita flicker e reduz chamadas ao backend.) Tj ET
+BT /F1 11 Tf 48 490.79 Td (Analogia: e como streaming que baixa o trecho atual e um pouco do proximo. Quando voce) Tj ET
+BT /F1 11 Tf 48 474.84 Td (avanca um pouco, nao precisa carregar tudo de novo.) Tj ET
+48.00 331.89 499.28 129.00 re S
+BT /F3 9 Tf 58 440.89 Td (Usuario move o mapa) Tj ET
+BT /F3 9 Tf 58 427.84 Td (        |) Tj ET
+BT /F3 9 Tf 58 414.79 Td (        v) Tj ET
+BT /F3 9 Tf 58 401.74 Td (onCameraIdle -> debounce 300ms -> calcula viewport + buffer) Tj ET
+BT /F3 9 Tf 58 388.69 Td (        |) Tj ET
+BT /F3 9 Tf 58 375.64 Td (        v) Tj ET
+BT /F3 9 Tf 58 362.59 Td (Viewport ja coberto?) Tj ET
+BT /F3 9 Tf 58 349.54 Td (   |-- sim: reusa pins carregados) Tj ET
+BT /F3 9 Tf 58 336.49 Td (   |-- nao: query por GeoHash -> mescla pins -> renderiza) Tj ET
+BT /F2 16 Tf 48 310.44 Td (5. GeoHash) Tj ET
+BT /F1 11 Tf 48 285.24 Td (GeoHash transforma latitude e longitude em uma string ordenavel. Isso permite consultar) Tj ET
+BT /F1 11 Tf 48 269.29 Td (ranges no Firestore para cobrir o viewport.) Tj ET
+BT /F1 11 Tf 48 249.34 Td (Mesmo usando GeoHash, existe filtro local defensivo porque a celula cobre uma area) Tj ET
+BT /F1 11 Tf 48 233.39 Td (aproximada. A query reduz muito o conjunto de dados; o filtro local garante precisao) Tj ET
+BT /F1 11 Tf 48 217.44 Td (nas bordas.) Tj ET
+48.00 165.49 499.28 38.00 re S
+BT /F3 9 Tf 58 183.49 Td (Viewport -> celulas GeoHash -> ranges lower/upper -> queries Firestore) Tj ET
+BT /F3 9 Tf 58 170.44 Td (                                              -> filtro preciso em memoria -> pins finais) Tj ET
+BT /F2 16 Tf 48 144.39 Td (6. Clustering) Tj ET
+BT /F1 11 Tf 48 119.19 Td (Renderizar muitos markers individuais no Google Maps custa caro. O clustering agrupa) Tj ET
+BT /F1 11 Tf 48 103.24 Td (pins quando o volume e alto e o zoom esta mais aberto.) Tj ET
+BT /F1 11 Tf 48 83.29 Td (Cluster nao deve ser usado sempre. No zoom alto, o usuario quer precisao; em visao) Tj ET
+BT /F1 11 Tf 48 67.34 Td (macro, ele quer densidade.) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 3228 >>
+stream
+BT /F1 11 Tf 48 793.89 Td (Analogia: olhando o Brasil, faz sentido ver "200 ocorrencias em Sao Paulo". Olhando uma) Tj ET
+BT /F1 11 Tf 48 777.94 Td (rua, o usuario quer o pin exato.) Tj ET
+48.00 712.99 499.28 51.00 re S
+BT /F3 9 Tf 58 743.99 Td (Lista de alertas -> precisa clusterizar?) Tj ET
+BT /F3 9 Tf 58 730.94 Td (        |-- poucos pins ou zoom alto -> pins individuais) Tj ET
+BT /F3 9 Tf 58 717.89 Td (        |-- muitos pins              -> agrupa por celula -> marker de cluster) Tj ET
+BT /F2 16 Tf 48 691.84 Td (7. Cache de Icones) Tj ET
+BT /F1 11 Tf 48 666.64 Td (Criar BitmapDescriptor para marker tem custo. Por isso os icones sao cacheados por tipo) Tj ET
+BT /F1 11 Tf 48 650.69 Td (de alerta e por bucket de cluster.) Tj ET
+48.00 585.74 499.28 51.00 re S
+BT /F3 9 Tf 58 616.74 Td (AlertaTipo -> PinCache tem?) Tj ET
+BT /F3 9 Tf 58 603.69 Td (        |-- sim -> retorna BitmapDescriptor) Tj ET
+BT /F3 9 Tf 58 590.64 Td (        |-- nao -> gera icone -> salva no cache -> retorna) Tj ET
+BT /F2 16 Tf 48 564.59 Td (8. Estado e Arquitetura) Tj ET
+BT /F1 11 Tf 48 539.39 Td (A arquitetura segue uma separacao em camadas: Presentation, Domain, Data e Core.) Tj ET
+BT /F1 11 Tf 48 519.44 Td (Por que Cubit? O estado e complexo, mas as acoes sao diretas: carregar dados, aplicar) Tj ET
+BT /F1 11 Tf 48 503.49 Td (filtro, mover mapa, selecionar pin e tentar retry. Cubit da previsibilidade sem criar) Tj ET
+BT /F1 11 Tf 48 487.54 Td (muita cerimonia com eventos.) Tj ET
+BT /F1 11 Tf 48 467.59 Td (Por que UseCase? Para a UI nao conhecer Firestore, SQLite, Storage ou detalhes de sync.) Tj ET
+BT /F1 11 Tf 48 451.64 Td (A tela chama uma intencao de negocio, e a implementacao fica atras das interfaces.) Tj ET
+48.00 295.69 499.28 142.00 re S
+BT /F3 9 Tf 58 417.69 Td (Presentation: Screens + Cubits) Tj ET
+BT /F3 9 Tf 58 404.64 Td (        |) Tj ET
+BT /F3 9 Tf 58 391.59 Td (        v) Tj ET
+BT /F3 9 Tf 58 378.54 Td (Domain: Entities + UseCases + Repository contracts) Tj ET
+BT /F3 9 Tf 58 365.49 Td (        |) Tj ET
+BT /F3 9 Tf 58 352.44 Td (        v) Tj ET
+BT /F3 9 Tf 58 339.39 Td (Data: Firestore / SQLite / Storage implementations) Tj ET
+BT /F3 9 Tf 58 326.34 Td (        |) Tj ET
+BT /F3 9 Tf 58 313.29 Td (        v) Tj ET
+BT /F3 9 Tf 58 300.24 Td (Core: DI, sync, network, telemetry, security) Tj ET
+BT /F2 16 Tf 48 274.19 Td (9. Filtros) Tj ET
+BT /F1 11 Tf 48 248.99 Td (Filtro de tipo e data entra no estado do mapa. Quando muda, o cache e invalidado e uma) Tj ET
+BT /F1 11 Tf 48 233.04 Td (nova query e feita no viewport atual.) Tj ET
+BT /F1 11 Tf 48 213.09 Td (O ideal e empurrar o filtro para o Firestore. Quando isso nao e possivel, o app mantem) Tj ET
+BT /F1 11 Tf 48 197.14 Td (filtro local defensivo.) Tj ET
+48.00 145.19 499.28 38.00 re S
+BT /F3 9 Tf 58 163.19 Td (Usuario seleciona filtro -> atualiza AlertaFilter -> limpa acumulador) Tj ET
+BT /F3 9 Tf 58 150.14 Td (                       -> refaz query no viewport -> mapa atualizado) Tj ET
+BT /F2 16 Tf 48 124.09 Td (10. Observabilidade) Tj ET
+BT /F1 11 Tf 48 98.89 Td (A solucao foi pensada para diagnosticar producao. O objetivo nao e apenas funcionar no) Tj ET
+BT /F1 11 Tf 48 82.94 Td (aparelho local, mas saber quando degradou e por que.) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 2506 >>
+stream
+BT /F1 11 Tf 48 793.89 Td (Frase boa para entrevista: eu nao quero so que funcione no meu aparelho. Eu quero saber) Tj ET
+BT /F1 11 Tf 48 777.94 Td (quando degradou em producao e por que.) Tj ET
+BT /F1 11 Tf 58 757.99 Td (- Mapa: pins carregados, tempo de query, fallback, cluster, cache hit/miss.) Tj ET
+BT /F1 11 Tf 58 742.04 Td (- Sync: total, sucesso, falha, dead-letter, tempo em fila.) Tj ET
+BT /F1 11 Tf 58 726.09 Td (- Offline: tamanho da outbox, idade media/maxima, quantidade de retries.) Tj ET
+BT /F1 11 Tf 58 710.14 Td (- Erros: Crashlytics e Performance atras de uma API mockavel.) Tj ET
+BT /F2 16 Tf 48 682.19 Td (11. Testabilidade) Tj ET
+BT /F1 11 Tf 48 656.99 Td (A estrategia de testes foca na logica que da para isolar. O Google Maps em si fica) Tj ET
+BT /F1 11 Tf 48 641.04 Td (melhor para teste de integracao/plataforma. Em unit test, o valor esta na logica que) Tj ET
+BT /F1 11 Tf 48 625.09 Td (decide quais markers mostrar.) Tj ET
+BT /F1 11 Tf 58 605.14 Td (- DAO SQLite em memoria.) Tj ET
+BT /F1 11 Tf 58 589.19 Td (- Sync worker, backoff e dead-letter.) Tj ET
+BT /F1 11 Tf 58 573.24 Td (- Filtros, cluster, cache de pins e geo utils.) Tj ET
+BT /F1 11 Tf 58 557.29 Td (- Cubits e benchmark de viewport.) Tj ET
+BT /F2 16 Tf 48 529.34 Td (Resumo Final) Tj ET
+BT /F1 11 Tf 48 504.14 Td (Minha proposta e um app offline-first com outbox local criptografada, sync idempotente) Tj ET
+BT /F1 11 Tf 48 488.19 Td (por clientId, retry com backoff e dead-letter. Para o mapa, evito buscar tudo: carrego) Tj ET
+BT /F1 11 Tf 48 472.24 Td (por viewport com GeoHash, aplico filtros no backend quando possivel, mantenho filtro) Tj ET
+BT /F1 11 Tf 48 456.29 Td (defensivo local, uso buffer para reduzir chamadas, clustering para preservar fluidez e) Tj ET
+BT /F1 11 Tf 48 440.34 Td (cache de icones para reduzir custo de renderizacao. A arquitetura separa UI, dominio e) Tj ET
+BT /F1 11 Tf 48 424.39 Td (dados, e a observabilidade foi pensada para diagnosticar gargalos reais.) Tj ET
+BT /F1 11 Tf 48 404.44 Td (Pontos para assumir com honestidade: hoje eu vejo tres melhorias antes de producao) Tj ET
+BT /F1 11 Tf 48 388.49 Td (plena: consolidar a tela real do formulario com o Cubit testado, tornar o caminho) Tj ET
+BT /F1 11 Tf 48 372.54 Td (GeoHash obrigatorio para bases grandes em vez de depender do fallback limitado, e) Tj ET
+BT /F1 11 Tf 48 356.59 Td (configurar o background sync nativo no iOS. Sao ajustes de maturidade, nao mudancas de) Tj ET
+BT /F1 11 Tf 48 340.64 Td (arquitetura.) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R] /Count 4 >>
+endobj
+13 0 obj
+<< /Type /Catalog /Pages 12 0 R >>
+endobj
+xref
+0 14
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000000222 00000 n 
+0000003972 00000 n 
+0000004125 00000 n 
+0000007662 00000 n 
+0000007815 00000 n 
+0000011095 00000 n 
+0000011248 00000 n 
+0000013807 00000 n 
+0000013962 00000 n 
+0000014039 00000 n 
+trailer
+<< /Size 14 /Root 13 0 R >>
+startxref
+14090
+%%EOF

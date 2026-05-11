@@ -19,11 +19,7 @@ abstract interface class OcorrenciaLocalDatasource {
 }
 
 class OcorrenciaLocalDatasourceImpl implements OcorrenciaLocalDatasource {
-  OcorrenciaLocalDatasourceImpl(
-    this._dao, [
-    LocalPayloadCrypto? crypto,
-  ]) : _crypto =
-            crypto ?? AesGcmLocalPayloadCrypto(InMemoryLocalCryptoKeyStore());
+  OcorrenciaLocalDatasourceImpl(this._dao, this._crypto);
 
   final PendingOcorrenciasDao _dao;
   final LocalPayloadCrypto _crypto;

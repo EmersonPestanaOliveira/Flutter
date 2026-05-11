@@ -5,17 +5,47 @@ import '../../domain/entities/alerta.dart';
 import '../../domain/enums/alerta_tipo.dart';
 import 'filter_sheet_controls.dart';
 
+/// Opções de período para filtrar alertas.
+enum AlertPeriodo {
+  hoje,
+  tresDias,
+  seteDias,
+  umMes,
+  tresMeses;
+
+  String get label => switch (this) {
+        AlertPeriodo.hoje => 'Hoje',
+        AlertPeriodo.tresDias => 'Últimos 3 dias',
+        AlertPeriodo.seteDias => 'Últimos 7 dias',
+        AlertPeriodo.umMes => 'Último mês',
+        AlertPeriodo.tresMeses => 'Últimos 3 meses',
+      };
+
+  /// Retorna a data inicial (inclusive) a partir de hoje.
+  DateTime get dateFrom {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return switch (this) {
+      AlertPeriodo.hoje => today,
+      AlertPeriodo.tresDias => today.subtract(const Duration(days: 2)),
+      AlertPeriodo.seteDias => today.subtract(const Duration(days: 6)),
+      AlertPeriodo.umMes => DateTime(now.year, now.month - 1, now.day),
+      AlertPeriodo.tresMeses => DateTime(now.year, now.month - 3, now.day),
+    };
+  }
+}
+
 class AlertFilterResult {
   const AlertFilterResult({
     required this.bairro,
     required this.cidade,
-    required this.dateKey,
+    required this.periodo,
     required this.tipo,
   });
 
   final String? bairro;
   final String? cidade;
-  final String? dateKey;
+  final AlertPeriodo? periodo;
   final AlertaTipo? tipo;
 }
 
@@ -24,20 +54,16 @@ class AlertFiltersSheet extends StatefulWidget {
     required this.alertas,
     required this.selectedBairro,
     required this.selectedCidade,
-    required this.selectedDateKey,
+    required this.selectedPeriodo,
     required this.selectedTipo,
-    required this.dateKeyBuilder,
-    required this.dateLabelBuilder,
     super.key,
   });
 
   final List<Alerta> alertas;
   final String? selectedBairro;
   final String? selectedCidade;
-  final String? selectedDateKey;
+  final AlertPeriodo? selectedPeriodo;
   final AlertaTipo? selectedTipo;
-  final String Function(DateTime date) dateKeyBuilder;
-  final String Function(DateTime date) dateLabelBuilder;
 
   @override
   State<AlertFiltersSheet> createState() => _AlertFiltersSheetState();
@@ -53,7 +79,7 @@ class _AlertFiltersSheetState extends State<AlertFiltersSheet> {
       AlertFilterResult(
         bairro: widget.selectedBairro,
         cidade: widget.selectedCidade,
-        dateKey: widget.selectedDateKey,
+        periodo: widget.selectedPeriodo,
         tipo: widget.selectedTipo,
       ),
     );
@@ -73,7 +99,6 @@ class _AlertFiltersSheetState extends State<AlertFiltersSheet> {
     final cidades = filterOptions(
       widget.alertas.map((alerta) => alerta.cidade),
     );
-    final dateOptions = _dateOptions();
     final tipos = AlertaTipo.values
         .where((tipo) => widget.alertas.any((alerta) => alerta.tipo == tipo))
         .toList(growable: false);
@@ -86,7 +111,7 @@ class _AlertFiltersSheetState extends State<AlertFiltersSheet> {
           onClear: () => _selection.value = const AlertFilterResult(
             bairro: null,
             cidade: null,
-            dateKey: null,
+            periodo: null,
             tipo: null,
           ),
           onApply: () => Navigator.of(context).pop(selection),
@@ -100,7 +125,7 @@ class _AlertFiltersSheetState extends State<AlertFiltersSheet> {
               onChanged: (value) => _selection.value = AlertFilterResult(
                 bairro: value,
                 cidade: selection.cidade,
-                dateKey: selection.dateKey,
+                periodo: selection.periodo,
                 tipo: selection.tipo,
               ),
             ),
@@ -113,23 +138,34 @@ class _AlertFiltersSheetState extends State<AlertFiltersSheet> {
               onChanged: (value) => _selection.value = AlertFilterResult(
                 bairro: selection.bairro,
                 cidade: value,
-                dateKey: selection.dateKey,
+                periodo: selection.periodo,
                 tipo: selection.tipo,
               ),
             ),
-            FilterDropdown(
-              label: 'Data',
-              value: dateOptions.any((option) => option.key == selection.dateKey)
-                  ? selection.dateKey
-                  : null,
-              options: dateOptions.map((option) => option.key).toList(),
-              labels: {
-                for (final option in dateOptions) option.key: option.label,
-              },
+            DropdownButtonFormField<AlertPeriodo>(
+              initialValue: selection.periodo,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Período',
+                filled: true,
+                fillColor: AppColors.neutral50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Todos')),
+                ...AlertPeriodo.values.map(
+                  (periodo) => DropdownMenuItem(
+                    value: periodo,
+                    child: Text(periodo.label),
+                  ),
+                ),
+              ],
               onChanged: (value) => _selection.value = AlertFilterResult(
                 bairro: selection.bairro,
                 cidade: selection.cidade,
-                dateKey: value,
+                periodo: value,
                 tipo: selection.tipo,
               ),
             ),
@@ -156,7 +192,7 @@ class _AlertFiltersSheetState extends State<AlertFiltersSheet> {
               onChanged: (value) => _selection.value = AlertFilterResult(
                 bairro: selection.bairro,
                 cidade: selection.cidade,
-                dateKey: selection.dateKey,
+                periodo: selection.periodo,
                 tipo: value,
               ),
             ),
@@ -164,19 +200,5 @@ class _AlertFiltersSheetState extends State<AlertFiltersSheet> {
         );
       },
     );
-  }
-
-  List<({String key, String label})> _dateOptions() {
-    final labels = <String, String>{};
-    for (final alerta in widget.alertas) {
-      final key = widget.dateKeyBuilder(alerta.data);
-      if (key.isNotEmpty) {
-        labels[key] = widget.dateLabelBuilder(alerta.data);
-      }
-    }
-    return labels.entries
-        .map((entry) => (key: entry.key, label: entry.value))
-        .toList()
-      ..sort((a, b) => b.key.compareTo(a.key));
   }
 }

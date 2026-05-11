@@ -25,13 +25,9 @@ class GetAlertasInBoundsParams extends Equatable {
 
 /// Retorna os alertas visíveis no viewport atual, aplicando o [AlertaFilter].
 ///
-/// Implementação atual: filtra em memória a partir de todos os alertas carregados.
-///
-/// // TODO: substituir por GeoQuery (geoflutterfire2 ou GeoHash) quando volume crescer.
-/// Passos para escalar:
-/// 1. Codificar cada [Alerta.latitude/longitude] como GeoHash no Firestore.
-/// 2. Usar `geoflutterfire_plus` com `withinAsBroadStream(center, radiusKm)`.
-/// 3. Combinar com filtros de tipo via composição de queries no Firestore.
+/// O repositório consulta Firestore por ranges de GeoHash. Este use case ainda
+/// mantém filtro local defensivo porque células GeoHash são aproximadas e podem
+/// retornar pontos fora do viewport exato.
 class GetAlertasInBoundsUseCase
     implements UseCase<List<Alerta>, GetAlertasInBoundsParams> {
   const GetAlertasInBoundsUseCase(this._repository);

@@ -1,24 +1,18 @@
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:record/record.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/design_system/app_colors.dart';
 import '../../../../core/design_system/app_spacing.dart';
 import '../../../../core/di/injection_container.dart';
-import '../../../../core/errors/failure_x.dart';
-import '../../../../core/network/backend_error_mapper.dart';
+import '../../../../core/geo/address_search.dart';
+import '../../../../core/geo/app_map_bounds.dart';
 import '../../../../core/router/app_routes.dart';
-import '../../data/services/ocorrencia_service.dart';
-import '../../domain/usecases/create_ocorrencia_usecase.dart';
+import '../../../home/domain/enums/alerta_tipo.dart';
+import '../cubit/ocorrencia_form_cubit.dart';
+import '../cubit/ocorrencia_form_state.dart';
 
 class OcorrenciaFormScreen extends StatefulWidget {
   const OcorrenciaFormScreen({super.key});
@@ -30,51 +24,88 @@ class OcorrenciaFormScreen extends StatefulWidget {
 class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
   static const _initialLocation = LatLng(-23.561684, -46.655981);
   static const _maxDescriptionLength = 1000;
-  static const _maxPdfBytes = 5 * 1024 * 1024;
-  static const _maxMediaBytes = 60 * 1024 * 1024;
 
   final _descriptionController = TextEditingController();
   final _searchController = TextEditingController();
-  final _recorder = AudioRecorder();
-  final _imagePicker = ImagePicker();
-  final _createUseCase = sl<CreateOcorrenciaUseCase>();
+  final _cubit = sl<OcorrenciaFormCubit>();
 
   GoogleMapController? _mapController;
-  LatLng? _selectedLocation;
-  DateTime? _date;
-  TimeOfDay? _time;
-  PlatformFile? _document;
-  String? _audioPath;
-  bool _isRecording = false;
   bool _isSearching = false;
-  bool _isSubmitting = false;
-  bool _acknowledgesPoliceReport = false;
-  bool _acceptsPrivacy = false;
-  final List<XFile> _media = [];
 
-  bool get _canSubmit {
-    final hasStory =
-        _descriptionController.text.trim().isNotEmpty || _audioPath != null;
-    return !_isSubmitting &&
-        _selectedLocation != null &&
-        _date != null &&
-        _time != null &&
-        hasStory &&
-        _acknowledgesPoliceReport &&
-        _acceptsPrivacy;
+  bool _canSubmit(OcorrenciaFormState state, OcorrenciaFormData data) =>
+      state is! OcorrenciaFormSaving && data.canSubmit;
+
+  OcorrenciaFormData _formDataFrom(OcorrenciaFormState state) {
+    return switch (state) {
+      OcorrenciaFormIdle(:final formData) => formData,
+      OcorrenciaFormRecordingAudio(:final formData) => formData,
+      OcorrenciaFormAttachingMedia(:final formData) => formData,
+      OcorrenciaFormLocating(:final formData) => formData,
+      OcorrenciaFormSaving(:final formData) => formData,
+      OcorrenciaFormValidationError(:final formData) => formData,
+      OcorrenciaFormError(:final formData) => formData,
+      OcorrenciaFormSavedOffline() => const OcorrenciaFormData(),
+    };
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Listener garante que o botão reaja imediatamente a qualquer mudança no texto.
+    _descriptionController.addListener(_onDescriptionChanged);
+    _searchController.addListener(_onSearchQueryChanged);
+  }
+
+  void _onDescriptionChanged() =>
+      _cubit.onDescriptionChanged(_descriptionController.text);
+
+  void _onSearchQueryChanged() =>
+      _cubit.onSearchQueryChanged(_searchController.text);
+
+  @override
   void dispose() {
+    _descriptionController.removeListener(_onDescriptionChanged);
+    _searchController.removeListener(_onSearchQueryChanged);
     _descriptionController.dispose();
     _searchController.dispose();
-    _recorder.dispose();
+    _cubit.close();
     super.dispose();
+  }
+
+  /// Mostra ao usuário quais campos ainda precisam ser preenchidos.
+  void _showMissingFields(OcorrenciaFormData data) {
+    final missing = <String>[];
+    if (data.selectedLocation == null) missing.add('• Localização no mapa');
+    if (data.date == null) missing.add('• Data');
+    if (data.time == null) missing.add('• Horário');
+    if (data.categoria == null) missing.add('• Categoria da ocorrência');
+    if (data.description.trim().isEmpty && data.audioPath == null) {
+      missing.add('• Descrição ou áudio do que aconteceu');
+    }
+    if (!data.acknowledgesPoliceReport) missing.add('• Aceite do termo de BO');
+    if (!data.acceptsPrivacy) missing.add('• Aceite da política de privacidade');
+    if (missing.isEmpty) return;
+    _showMessage('Preencha os campos obrigatórios:\n${missing.join('\n')}');
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return BlocConsumer<OcorrenciaFormCubit, OcorrenciaFormState>(
+      bloc: _cubit,
+      listener: (context, state) {
+        if (state case OcorrenciaFormValidationError(:final message)) {
+          _showMessage(message);
+        } else if (state case OcorrenciaFormError(:final message)) {
+          _showMessage(message);
+        } else if (state is OcorrenciaFormSavedOffline) {
+          context.go(AppRoutes.ocorrenciasSuccess);
+        }
+      },
+      builder: (context, state) {
+        final data = _formDataFrom(state);
+        final canSubmit = _canSubmit(state, data);
+
+        return Scaffold(
       backgroundColor: AppColors.neutral0,
       appBar: AppBar(
         backgroundColor: AppColors.neutral0,
@@ -129,15 +160,14 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
                   myLocationEnabled: true,
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
+                  cameraTargetBounds: AppMapBounds.southeastBrazilCameraTarget,
                   onMapCreated: (controller) => _mapController = controller,
-                  onTap: (position) {
-                    setState(() => _selectedLocation = position);
-                  },
+                  onTap: _cubit.onLocationSelected,
                   markers: {
-                    if (_selectedLocation != null)
+                    if (data.selectedLocation != null)
                       Marker(
                         markerId: const MarkerId('ocorrencia'),
-                        position: _selectedLocation!,
+                        position: data.selectedLocation!,
                       ),
                   },
                 ),
@@ -153,27 +183,62 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
             _FieldLabel('Quando?'),
             _PickerField(
               hint: 'dd/mm/aaaa',
-              value: _date == null
+              value: data.date == null
                   ? null
-                  : '${_date!.day.toString().padLeft(2, '0')}/${_date!.month.toString().padLeft(2, '0')}/${_date!.year}',
+                  : '${data.date!.day.toString().padLeft(2, '0')}/${data.date!.month.toString().padLeft(2, '0')}/${data.date!.year}',
               onTap: _pickDate,
             ),
             const SizedBox(height: AppSpacing.lg),
             _FieldLabel('Horário aproximado:'),
             _PickerField(
               hint: 'HH:MM',
-              value: _time?.format(context),
+              value: data.time,
               onTap: _pickTime,
             ),
             const SizedBox(height: AppSpacing.lg),
-            _FieldLabel('Conte o que aconteceu:'),
+            _RequiredFieldLabel('Categoria da ocorrência:'),
+            DropdownButtonFormField<AlertaTipo>(
+              initialValue: data.categoria,
+              isExpanded: true,
+              decoration: InputDecoration(
+                hintText: 'Selecione uma categoria',
+                hintStyle: const TextStyle(color: AppColors.neutral300),
+                filled: true,
+                fillColor: const Color(0xFFF1F3F6),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.neutral300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.neutral300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: AppColors.brandGreen),
+                ),
+              ),
+              items: AlertaTipo.values
+                  .map(
+                    (tipo) => DropdownMenuItem(
+                      value: tipo,
+                      child: Text(tipo.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) _cubit.onCategoriaSelected(value);
+              },
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            _RequiredFieldLabel('Conte o que aconteceu:'),
             _AudioButton(
-              isRecording: _isRecording,
-              hasAudio: _audioPath != null,
+              isRecording: data.isRecording,
+              hasAudio: data.audioPath != null,
               onTap: _toggleRecording,
-              onDelete: _audioPath == null
+              onDelete: data.audioPath == null
                   ? null
-                  : () => setState(() => _audioPath = null),
+                  : _cubit.removeAudio,
             ),
             const Padding(
               padding: EdgeInsets.only(
@@ -181,7 +246,7 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
                 bottom: AppSpacing.md,
               ),
               child: Text(
-                '* Só é possível enviar um áudio por relato.',
+                '* Áudio é opcional. Só é possível enviar um áudio por relato.',
                 style: TextStyle(
                   color: AppColors.headerBlue,
                   fontSize: 16,
@@ -193,7 +258,6 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
               controller: _descriptionController,
               maxLength: _maxDescriptionLength,
               maxLines: 5,
-              onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 hintText:
                     'Dê o máximo de detalhes que se lembrar. "Tinha algum veículo envolvido? Qual era?", "Como eram as pessoas? Tinha algum detalhe marcante?", "Onde exatamente aconteceu? Tem alguma referência próxima?"',
@@ -217,9 +281,9 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
             const SizedBox(height: AppSpacing.lg),
             _OutlineActionButton(
               icon: Icons.attach_file,
-              label: _document == null
+              label: data.documentPath == null
                   ? 'Adicione o Boletim de Ocorrência'
-                  : _document!.name,
+                  : _fileName(data.documentPath!),
               onTap: _pickDocument,
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -228,17 +292,17 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
               style: TextStyle(color: AppColors.neutral900, fontSize: 15),
             ),
             const SizedBox(height: AppSpacing.lg),
-            _MediaPickerBox(count: _media.length, onTap: _showMediaOptions),
-            if (_media.isNotEmpty) ...[
+            _MediaPickerBox(count: data.media.length, onTap: _showMediaOptions),
+            if (data.media.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.md),
               Wrap(
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,
                 children: [
-                  for (final file in _media)
+                  for (var i = 0; i < data.media.length; i++)
                     Chip(
-                      label: Text(_fileName(file.path)),
-                      onDeleted: () => setState(() => _media.remove(file)),
+                      label: Text(_fileName(data.media[i].path)),
+                      onDeleted: () => _cubit.removeMedia(i),
                     ),
                 ],
               ),
@@ -250,9 +314,9 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
             ),
             const SizedBox(height: AppSpacing.xl),
             _ConsentCheckbox(
-              value: _acknowledgesPoliceReport,
+              value: data.acknowledgesPoliceReport,
               onChanged: (value) =>
-                  setState(() => _acknowledgesPoliceReport = value),
+                  _cubit.onAcknowledgesPoliceReportChanged(value),
               child: RichText(
                 text: const TextSpan(
                   style: TextStyle(
@@ -275,8 +339,8 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
             ),
             const SizedBox(height: AppSpacing.lg),
             _ConsentCheckbox(
-              value: _acceptsPrivacy,
-              onChanged: (value) => setState(() => _acceptsPrivacy = value),
+              value: data.acceptsPrivacy,
+              onChanged: _cubit.onAcceptsPrivacyChanged,
               child: RichText(
                 text: TextSpan(
                   style: const TextStyle(
@@ -309,9 +373,12 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
             const SizedBox(height: 44),
             SizedBox(
               height: 62,
-              child: FilledButton(
+              child: GestureDetector(
+                // Quando desabilitado, mostra quais campos faltam preencher.
+                onTap: canSubmit ? null : () => _showMissingFields(data),
+                child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: _canSubmit
+                  backgroundColor: canSubmit
                       ? AppColors.brandGreen
                       : AppColors.neutral300,
                   disabledBackgroundColor: AppColors.neutral300,
@@ -319,8 +386,8 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                onPressed: _canSubmit ? _submit : null,
-                child: _isSubmitting
+                onPressed: canSubmit ? _submit : null,
+                child: state is OcorrenciaFormSaving
                     ? const SizedBox.square(
                         dimension: 22,
                         child: CircularProgressIndicator(
@@ -336,10 +403,13 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
                         ),
                       ),
               ),
+              ),
             ),
           ],
         ),
       ),
+        );
+      },
     );
   }
 
@@ -358,7 +428,7 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
         return;
       }
 
-      setState(() => _selectedLocation = location);
+      _cubit.onLocationSelected(location);
       await _mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(location, 16),
       );
@@ -387,125 +457,65 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
   }
 
   Future<LatLng?> _searchAddress(String query) async {
-    final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
-      'q': query,
-      'format': 'json',
-      'limit': '1',
-    });
-    final client = HttpClient();
-    final request = await client.getUrl(uri);
-    request.headers.set('User-Agent', 'gabriel-clone-ocorrencias');
-    final response = await request.close();
-    final body = await response.transform(utf8.decoder).join();
-    client.close();
-
-    final results = jsonDecode(body) as List<dynamic>;
-    if (results.isEmpty) {
-      return null;
-    }
-
-    final first = results.first as Map<String, dynamic>;
-    return LatLng(
-      double.parse(first['lat'] as String),
-      double.parse(first['lon'] as String),
-    );
+    return searchAddressCoordinates(query);
   }
 
   Future<void> _useCurrentLocation() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _showMessage('Ative a localização do dispositivo.');
-      return;
+    await _cubit.useCurrentLocation();
+    final location = _formDataFrom(_cubit.state).selectedLocation;
+    if (location != null) {
+      await _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(location, 16),
+      );
     }
-
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      _showMessage('Permissão de localização negada.');
-      return;
-    }
-
-    final position = await Geolocator.getCurrentPosition();
-    final location = LatLng(position.latitude, position.longitude);
-    setState(() => _selectedLocation = location);
-    await _mapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(location, 16),
-    );
   }
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: _date ?? now,
+      initialDate: _formDataFrom(_cubit.state).date ?? now,
       firstDate: DateTime(now.year - 3),
       lastDate: now,
     );
     if (picked != null) {
-      setState(() => _date = picked);
+      _cubit.onDateSelected(picked);
     }
   }
 
   Future<void> _pickTime() async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: _time ?? TimeOfDay.now(),
+      initialTime: _parseTimeOfDay(_formDataFrom(_cubit.state).time) ??
+          TimeOfDay.now(),
     );
     if (picked != null) {
-      setState(() => _time = picked);
+      _cubit.onTimeSelected(
+        '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}',
+      );
     }
+  }
+
+  TimeOfDay? _parseTimeOfDay(String? value) {
+    if (value == null) return null;
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return TimeOfDay(hour: hour, minute: minute);
   }
 
   Future<void> _toggleRecording() async {
-    if (_isRecording) {
-      final path = await _recorder.stop();
-      setState(() {
-        _isRecording = false;
-        _audioPath = path;
-      });
-      return;
-    }
-
-    final hasPermission = await _recorder.hasPermission();
-    if (!hasPermission) {
-      _showMessage('Permissão de microfone negada.');
-      return;
-    }
-
-    final directory = await getTemporaryDirectory();
-    final path =
-        '${directory.path}/ocorrencia_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    await _recorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc),
-      path: path,
-    );
-    setState(() => _isRecording = true);
+    await _cubit.toggleRecording();
   }
 
   Future<void> _pickDocument() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['pdf'],
-    );
-    final file = result?.files.single;
-    if (file == null) {
-      return;
-    }
-
-    if (file.size > _maxPdfBytes) {
-      _showMessage('O PDF deve ter no máximo 5 MB.');
-      return;
-    }
-
-    setState(() => _document = file);
+    await _cubit.pickDocument();
   }
 
   Future<void> _showMediaOptions() async {
-    if (_media.length >= 3) {
+    if (_formDataFrom(_cubit.state).media.length >= 3) {
       _showMessage('Você já adicionou 3 arquivos.');
       return;
     }
@@ -532,32 +542,10 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
     );
 
     if (choice == 'photos') {
-      final photos = await _imagePicker.pickMultiImage();
-      await _addMedia(photos.take(3 - _media.length).toList());
+      await _cubit.pickImages();
     } else if (choice == 'video') {
-      final video = await _imagePicker.pickVideo(source: ImageSource.gallery);
-      if (video != null) {
-        await _addMedia([video]);
-      }
+      await _cubit.pickVideo();
     }
-  }
-
-  Future<void> _addMedia(List<XFile> files) async {
-    final newTotal = await _mediaSize(_media) + await _mediaSize(files);
-    if (newTotal > _maxMediaBytes) {
-      _showMessage('O total das mídias não pode ultrapassar 60 MB.');
-      return;
-    }
-
-    setState(() => _media.addAll(files));
-  }
-
-  Future<int> _mediaSize(List<XFile> files) async {
-    var total = 0;
-    for (final file in files) {
-      total += await file.length();
-    }
-    return total;
   }
 
   Future<void> _openPrivacyPolicy() async {
@@ -566,71 +554,7 @@ class _OcorrenciaFormScreenState extends State<OcorrenciaFormScreen> {
   }
 
   Future<void> _submit() async {
-    final location = _selectedLocation;
-    final date = _date;
-    final time = _time;
-    if (location == null || date == null || time == null) {
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-    try {
-      final result = await _createUseCase(
-        CreateOcorrenciaParams(
-          input: CreateOcorrenciaInput(
-            informacoes: _descriptionController.text.trim(),
-            quando: date,
-            horario:
-                '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
-            latitude: location.latitude,
-            longitude: location.longitude,
-            enderecoBusca: _searchController.text.trim(),
-            cienteBoletim: _acknowledgesPoliceReport,
-            aceitePrivacidade: _acceptsPrivacy,
-            audio: _audioPath == null
-                ? null
-                : OcorrenciaAttachment(
-                    path: _audioPath!,
-                    storageName: _fileName(_audioPath!),
-                    kind: 'audio',
-                  ),
-            boletimOcorrencia: _document?.path == null
-                ? null
-                : OcorrenciaAttachment(
-                    path: _document!.path!,
-                    storageName: _document!.name,
-                    kind: 'documento',
-                  ),
-            multimidia: [
-              for (final file in _media)
-                OcorrenciaAttachment(
-                  path: file.path,
-                  storageName: _fileName(file.path),
-                  kind: _isVideo(file.path) ? 'video' : 'foto',
-                ),
-            ],
-          ),
-        ),
-      );
-
-      result.fold(
-        (failure) => _showMessage(failure.message),
-        (_) {
-          if (mounted) context.go(AppRoutes.ocorrenciasSuccess);
-        },
-      );
-    } catch (error) {
-      _showMessage(BackendErrorMapper.message(error));
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
-  }
-
-  bool _isVideo(String path) {
-    final lower = path.toLowerCase();
-    return lower.endsWith('.mp4') || lower.endsWith('.mov');
+    await _cubit.submit();
   }
 
   String _fileName(String path) {
@@ -709,6 +633,40 @@ class _FieldLabel extends StatelessWidget {
           color: AppColors.headerBlue,
           fontWeight: FontWeight.w900,
         ),
+      ),
+    );
+  }
+}
+
+class _RequiredFieldLabel extends StatelessWidget {
+  const _RequiredFieldLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: AppColors.headerBlue,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Text(
+            '*',
+            style: TextStyle(
+              color: AppColors.accentRed,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }

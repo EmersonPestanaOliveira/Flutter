@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,6 +10,7 @@ import 'package:record/record.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/observability/telemetry.dart';
+import '../../../home/domain/enums/alerta_tipo.dart';
 import '../../data/services/ocorrencia_service.dart';
 import '../../domain/usecases/create_ocorrencia_usecase.dart';
 import 'ocorrencia_form_state.dart';
@@ -47,6 +46,10 @@ class OcorrenciaFormCubit extends Cubit<OcorrenciaFormState> {
   final AudioRecorder _recorder;
   final ImagePicker _imagePicker;
   final Uuid _uuid;
+
+  static const int _maxPdfBytes = 5 * 1024 * 1024;
+  static const int _maxMediaBytes = 60 * 1024 * 1024;
+  static const int _maxMediaCount = 3;
 
   // ---------------------------------------------------------------------------
   // Leitura do estado atual (helper)
@@ -100,6 +103,12 @@ class OcorrenciaFormCubit extends Cubit<OcorrenciaFormState> {
     ));
   }
 
+  void onCategoriaSelected(AlertaTipo categoria) {
+    emit(OcorrenciaFormIdle(
+      formData: _currentData.copyWith(categoria: categoria),
+    ));
+  }
+
   void onAcknowledgesPoliceReportChanged(bool value) {
     emit(OcorrenciaFormIdle(
       formData: _currentData.copyWith(acknowledgesPoliceReport: value),
@@ -132,9 +141,32 @@ class OcorrenciaFormCubit extends Cubit<OcorrenciaFormState> {
     final data = _currentData;
     emit(OcorrenciaFormLocating(formData: data));
     try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        emit(OcorrenciaFormError(
+          formData: data,
+          message: 'Ative a localização do dispositivo.',
+        ));
+        return;
+      }
+
       final permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
-        await Geolocator.requestPermission();
+        final requested = await Geolocator.requestPermission();
+        if (requested == LocationPermission.denied ||
+            requested == LocationPermission.deniedForever) {
+          emit(OcorrenciaFormError(
+            formData: data,
+            message: 'Permissão de localização negada.',
+          ));
+          return;
+        }
+      } else if (permission == LocationPermission.deniedForever) {
+        emit(OcorrenciaFormError(
+          formData: data,
+          message: 'Permissão de localização negada.',
+        ));
+        return;
       }
       final position = await Geolocator.getCurrentPosition();
       emit(OcorrenciaFormIdle(
@@ -197,10 +229,45 @@ class OcorrenciaFormCubit extends Cubit<OcorrenciaFormState> {
     emit(OcorrenciaFormAttachingMedia(formData: data));
     try {
       final picked = await _imagePicker.pickMultiImage(imageQuality: 85);
+      final files = picked.take(_maxMediaCount - data.media.length).toList();
+      final validationError = await _validateMediaAddition(data, files);
+      if (validationError != null) {
+        emit(OcorrenciaFormValidationError(
+          formData: data,
+          message: validationError,
+        ));
+        return;
+      }
       emit(OcorrenciaFormIdle(
-        formData: data.copyWith(media: [...data.media, ...picked]),
+        formData: data.copyWith(media: [...data.media, ...files]),
       ));
-      _telemetry.log('form.media_added', params: {'count': picked.length});
+      _telemetry.log('form.media_added', params: {'count': files.length});
+    } catch (e) {
+      emit(OcorrenciaFormIdle(formData: data));
+    }
+  }
+
+  Future<void> pickVideo() async {
+    final data = _currentData;
+    emit(OcorrenciaFormAttachingMedia(formData: data));
+    try {
+      final picked = await _imagePicker.pickVideo(source: ImageSource.gallery);
+      if (picked == null) {
+        emit(OcorrenciaFormIdle(formData: data));
+        return;
+      }
+      final validationError = await _validateMediaAddition(data, [picked]);
+      if (validationError != null) {
+        emit(OcorrenciaFormValidationError(
+          formData: data,
+          message: validationError,
+        ));
+        return;
+      }
+      emit(OcorrenciaFormIdle(
+        formData: data.copyWith(media: [...data.media, picked]),
+      ));
+      _telemetry.log('form.media_added', params: {'count': 1});
     } catch (e) {
       emit(OcorrenciaFormIdle(formData: data));
     }
@@ -214,14 +281,13 @@ class OcorrenciaFormCubit extends Cubit<OcorrenciaFormState> {
         type: FileType.custom,
         allowedExtensions: ['pdf'],
       );
-      final path = result?.files.single.path;
-      if (path != null) {
-        final fileSize = await File(path).length();
-        const maxBytes = 5 * 1024 * 1024;
-        if (fileSize > maxBytes) {
+      final file = result?.files.single;
+      final path = file?.path;
+      if (file != null) {
+        if (file.size > _maxPdfBytes) {
           emit(OcorrenciaFormValidationError(
             formData: data,
-            message: 'O documento deve ter menos de 5 MB.',
+            message: 'O PDF deve ter no máximo 5 MB.',
           ));
           return;
         }
@@ -238,6 +304,31 @@ class OcorrenciaFormCubit extends Cubit<OcorrenciaFormState> {
     final data = _currentData;
     final updated = List<XFile>.from(data.media)..removeAt(index);
     emit(OcorrenciaFormIdle(formData: data.copyWith(media: updated)));
+  }
+
+  Future<String?> _validateMediaAddition(
+    OcorrenciaFormData data,
+    List<XFile> files,
+  ) async {
+    if (files.isEmpty) return null;
+    if (data.media.length >= _maxMediaCount ||
+        data.media.length + files.length > _maxMediaCount) {
+      return 'Você já adicionou 3 arquivos.';
+    }
+
+    final newTotal = await _mediaSize(data.media) + await _mediaSize(files);
+    if (newTotal > _maxMediaBytes) {
+      return 'O total das mídias não pode ultrapassar 60 MB.';
+    }
+    return null;
+  }
+
+  Future<int> _mediaSize(List<XFile> files) async {
+    var total = 0;
+    for (final file in files) {
+      total += await file.length();
+    }
+    return total;
   }
 
   // ---------------------------------------------------------------------------
@@ -293,6 +384,7 @@ class OcorrenciaFormCubit extends Cubit<OcorrenciaFormState> {
         informacoes: data.description.trim(),
         quando: data.date!,
         horario: data.time!,
+        categoria: data.categoria?.name ?? 'outros',
         latitude: location.latitude,
         longitude: location.longitude,
         enderecoBusca: data.searchQuery.trim(),

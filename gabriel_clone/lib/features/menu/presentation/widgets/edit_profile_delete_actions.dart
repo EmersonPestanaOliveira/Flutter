@@ -1,5 +1,7 @@
 ﻿part of '../menu_pages.dart';
 
+// ignore_for_file: invalid_use_of_protected_member
+
 extension _EditProfileDeleteActions on _EditProfilePageState {
   Future<void> _confirmDelete() async {
     final shouldDelete = await showDialog<bool>(

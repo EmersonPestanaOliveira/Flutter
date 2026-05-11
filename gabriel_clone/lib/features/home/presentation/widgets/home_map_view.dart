@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../../core/geo/app_map_bounds.dart';
 import '../../domain/entities/alerta.dart';
 import 'alert_preview_card.dart';
 import 'home_map_constants.dart';
@@ -45,6 +46,7 @@ class HomeMapView extends StatelessWidget {
           myLocationEnabled: true,
           myLocationButtonEnabled: false,
           zoomControlsEnabled: false,
+          cameraTargetBounds: AppMapBounds.southeastBrazilCameraTarget,
           onTap: (_) => onAlertDeselect(),
           onMapCreated: _handleMapCreated,
           onCameraMove: onCameraMove,

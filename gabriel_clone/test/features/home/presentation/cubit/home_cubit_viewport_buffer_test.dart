@@ -189,7 +189,7 @@ void main() {
   // Acumulador de pins: pins ja carregados nao podem sumir do estado
   // ---------------------------------------------------------------------------
 
-  test('pins do load inicial permanecem no estado apos viewport-fetch '
+  test('pins de viewport anterior permanecem no estado apos viewport-fetch '
       'que retorna so um subconjunto', () async {
     // Prepara 5 pins espalhados — apenas o primeiro estara no viewport
     // restrito que sera consultado.
@@ -201,24 +201,32 @@ void main() {
       _alertaAt('pin-5', -22.9, -46.1),
     ];
 
-    when(() => getCamerasUseCase(any()))
-        .thenAnswer((_) async => const Right([testCamera]));
-    when(() => getAlertasUseCase(any()))
-        .thenAnswer((_) async => Right(allAlertas));
-
-    // O use case de viewport retorna so o primeiro pin. Sem o acumulador,
-    // os outros 4 sumiriam do estado.
+    // A primeira query carrega todos; a segunda retorna so o primeiro pin.
+    // Sem o acumulador, os outros 4 sumiriam do estado.
+    final responses = <List<Alerta>>[
+      allAlertas,
+      [allAlertas.first],
+    ];
     when(() => getAlertasInBoundsUseCase(any()))
-        .thenAnswer((_) async => Right([allAlertas.first]));
+        .thenAnswer((_) async => Right(responses.removeAt(0)));
 
     final cubit = buildCubit();
     await cubit.loadData();
 
-    expect((cubit.state as HomeLoaded).alertas.length, 5,
-        reason: 'load inicial deve manter os 5 pins');
+    expect((cubit.state as HomeLoaded).alertas.length, 0,
+        reason: 'load inicial nao busca top 2000 em producao');
 
     cubit.onCameraIdle(
       box(south: -23.6, west: -46.7, north: -23.4, east: -46.5),
+      14,
+    );
+    await waitDebounce();
+
+    expect((cubit.state as HomeLoaded).alertas.length, 5,
+        reason: 'primeira query de viewport deve carregar os 5 pins');
+
+    cubit.onCameraIdle(
+      box(south: -23.4, west: -46.5, north: -23.2, east: -46.3),
       14,
     );
     await waitDebounce();

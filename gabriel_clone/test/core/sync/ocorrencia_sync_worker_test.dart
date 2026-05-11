@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gabriel_clone/core/database/app_database.dart';
+import 'package:gabriel_clone/core/security/local_payload_crypto.dart';
 import 'package:gabriel_clone/core/observability/telemetry.dart';
 import 'package:gabriel_clone/core/sync/ocorrencia_sync_worker.dart';
 import 'package:gabriel_clone/features/ocorrencias/data/datasources/ocorrencia_local_datasource.dart';
@@ -18,7 +19,10 @@ void main() {
   setUp(() {
     sqlite = sqlite3.openInMemory();
     final db = AppDatabase.forTesting(sqlite);
-    local = OcorrenciaLocalDatasourceImpl(db.pendingOcorrenciasDao);
+    local = OcorrenciaLocalDatasourceImpl(
+      db.pendingOcorrenciasDao,
+      AesGcmLocalPayloadCrypto(InMemoryLocalCryptoKeyStore()),
+    );
     remote = FakeRemoteDatasource();
     worker = OcorrenciaSyncWorker(
       local: local,
@@ -79,6 +83,12 @@ void main() {
     expect(remote.createdClientIds.where((id) => id == 'client-1').length, 2);
   });
 
+  test('sync preserva categoria gravada no payload', () async {
+    await local.enqueue(_pending('client-1', categoria: 'rouboFurto'));
+    await worker.syncPendingOcorrencias();
+    expect(remote.createdInputs.single.categoria, 'rouboFurto');
+  });
+
   test('isRecoverableSyncError classifica SocketException como recuperável', () {
     expect(isRecoverableSyncError(const SocketException('no route')), isTrue);
   });
@@ -105,13 +115,15 @@ PendingOcorrenciasCompanion _pending(
   String status = 'queued',
   int attemptCount = 0,
   int? updatedAt,
+  String categoria = 'outros',
 }) {
   final now = DateTime.now().millisecondsSinceEpoch;
   return PendingOcorrenciasCompanion(
     clientId: clientId,
     payloadJson:
         '{"informacoes":"t","quando":"2026-05-06T10:00:00.000",'
-        '"horario":"10:00","latitude":-23.5,"longitude":-46.6,'
+        '"horario":"10:00","categoria":"$categoria",'
+        '"latitude":-23.5,"longitude":-46.6,'
         '"enderecoBusca":"R","cienteBoletim":true,"aceitePrivacidade":true}',
     attachmentsJson: '[]',
     status: status,
@@ -124,6 +136,7 @@ PendingOcorrenciasCompanion _pending(
 class FakeRemoteDatasource implements OcorrenciaRemoteDatasource {
   bool shouldFail = false;
   final createdClientIds = <String>[];
+  final createdInputs = <CreateOcorrenciaInput>[];
 
   @override
   Future<void> createOcorrencia({
@@ -132,6 +145,7 @@ class FakeRemoteDatasource implements OcorrenciaRemoteDatasource {
   }) async {
     if (shouldFail) throw StateError('offline');
     createdClientIds.add(clientId);
+    createdInputs.add(input);
   }
 }
 

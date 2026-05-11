@@ -1,7 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:record/record.dart';
+
+import '../../../home/domain/enums/alerta_tipo.dart';
 
 /// Estados selados do formulário de ocorrência.
 ///
@@ -117,6 +118,7 @@ class OcorrenciaFormData extends Equatable {
     this.selectedLocation,
     this.date,
     this.time,
+    this.categoria,
     this.documentPath,
     this.audioPath,
     this.isRecording = false,
@@ -130,6 +132,10 @@ class OcorrenciaFormData extends Equatable {
   final LatLng? selectedLocation;
   final DateTime? date;
   final String? time;
+
+  /// Categoria da ocorrência — obrigatória para habilitar o envio.
+  final AlertaTipo? categoria;
+
   final String? documentPath;
   final String? audioPath;
   final bool isRecording;
@@ -138,11 +144,11 @@ class OcorrenciaFormData extends Equatable {
   final List<XFile> media;
 
   bool get canSubmit {
-    final hasStory = description.trim().isNotEmpty || audioPath != null;
     return selectedLocation != null &&
         date != null &&
         time != null &&
-        hasStory &&
+        categoria != null &&
+        (description.trim().isNotEmpty || audioPath != null) &&
         acknowledgesPoliceReport &&
         acceptsPrivacy;
   }
@@ -153,6 +159,7 @@ class OcorrenciaFormData extends Equatable {
     LatLng? selectedLocation,
     Object? date = _sentinel,
     Object? time = _sentinel,
+    Object? categoria = _sentinel,
     Object? documentPath = _sentinel,
     Object? audioPath = _sentinel,
     bool? isRecording,
@@ -166,6 +173,8 @@ class OcorrenciaFormData extends Equatable {
       selectedLocation: selectedLocation ?? this.selectedLocation,
       date: date == _sentinel ? this.date : date as DateTime?,
       time: time == _sentinel ? this.time : time as String?,
+      categoria:
+          categoria == _sentinel ? this.categoria : categoria as AlertaTipo?,
       documentPath:
           documentPath == _sentinel ? this.documentPath : documentPath as String?,
       audioPath: audioPath == _sentinel ? this.audioPath : audioPath as String?,
@@ -184,6 +193,7 @@ class OcorrenciaFormData extends Equatable {
         selectedLocation,
         date,
         time,
+        categoria,
         documentPath,
         audioPath,
         isRecording,

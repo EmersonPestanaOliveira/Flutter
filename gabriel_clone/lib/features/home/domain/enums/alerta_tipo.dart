@@ -12,6 +12,12 @@ enum AlertaTipo {
 }
 
 AlertaTipo alertaTipoFromString(String value) {
+  for (final tipo in AlertaTipo.values) {
+    if (value == tipo.name || value == tipo.label) {
+      return tipo;
+    }
+  }
+
   final normalized = normalizeSearchText(
     value,
     collapseWhitespace: true,
@@ -26,10 +32,13 @@ AlertaTipo alertaTipoFromString(String value) {
   }
   if (normalized == 'roubo ou furto de veiculos' ||
       normalized == 'roubo furto veiculo' ||
-      normalized == 'roubo furtoveiculo') {
+      normalized == 'roubo furtoveiculo' ||
+      normalized == 'roubofurtoveiculo') {
     return AlertaTipo.rouboFurtoVeiculo;
   }
-  if (normalized == 'roubo ou furto' || normalized == 'roubo furto') {
+  if (normalized == 'roubo ou furto' ||
+      normalized == 'roubo furto' ||
+      normalized == 'roubofurto') {
     return AlertaTipo.rouboFurto;
   }
   if (normalized == 'estelionato') {

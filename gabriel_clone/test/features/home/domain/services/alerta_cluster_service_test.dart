@@ -61,6 +61,40 @@ void main() {
       final ids = clusters.map((c) => c.id).toSet();
       expect(ids.length, clusters.length);
     });
+    test('politica padrao clusteriza volume alto em zoom urbano', () {
+      final alertas = List.generate(
+        501,
+        (i) => _alerta(
+          'a$i',
+          -23.5505 + (i % 20) * 0.00001,
+          -46.6333 + (i % 20) * 0.00001,
+        ),
+      );
+
+      final result = AlertaClusterService.build(alertas, 13);
+
+      expect(result.enabled, isTrue);
+      expect(result.clusterCount, greaterThan(0));
+      expect(result.reason, ClusterDecisionReasons.enabledHighVolume);
+    });
+
+    test('politica padrao mantem pins individuais em zoom maximo', () {
+      final alertas = List.generate(
+        501,
+        (i) => _alerta(
+          'a$i',
+          -23.5505 + (i % 20) * 0.00001,
+          -46.6333 + (i % 20) * 0.00001,
+        ),
+      );
+
+      final result = AlertaClusterService.build(alertas, 16);
+
+      expect(result.enabled, isFalse);
+      expect(result.reason, ClusterDecisionReasons.zoomTooHigh);
+      expect(result.clusterCount, 0);
+      expect(result.individualPinCount, alertas.length);
+    });
   });
 }
 

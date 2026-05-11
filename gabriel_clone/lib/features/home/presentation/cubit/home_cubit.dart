@@ -7,18 +7,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../../core/database/app_database.dart';
-import '../../../../core/errors/failure_x.dart';
 import '../../../../core/geo/geo_utils.dart';
 import '../../../../core/observability/telemetry.dart';
-import '../../../../core/types/app_result.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../ocorrencias/data/datasources/ocorrencia_local_datasource.dart';
 import '../../../ocorrencias/domain/usecases/watch_my_ocorrencias_usecase.dart';
+import '../../data/services/stress_pins_config_service.dart';
 import '../../domain/entities/alerta.dart';
 import '../../domain/entities/alerta_filter.dart';
 import '../../domain/entities/camera.dart';
 import '../../domain/enums/alerta_tipo.dart';
 import '../../domain/services/alerta_pin_merge_service.dart';
+import '../../domain/services/stress_pins_generator.dart';
 import '../../domain/usecases/get_alertas_in_bounds_usecase.dart';
 import '../../domain/usecases/get_alertas_usecase.dart';
 import '../../domain/usecases/get_cameras_usecase.dart';
@@ -32,9 +32,13 @@ class HomeCubit extends Cubit<HomeState> {
     Telemetry? telemetry,
     OcorrenciaLocalDatasource? localOcorrencias,
     RetryFailedOcorrenciaUseCase? retryFailedOcorrenciaUseCase,
+    StressPinsConfigService? stressPinsConfigService,
+    StressPinsGenerator? stressPinsGenerator,
   })  : _telemetry = telemetry,
         _localOcorrencias = localOcorrencias,
         _retryFailedOcorrenciaUseCase = retryFailedOcorrenciaUseCase,
+        _stressPinsConfigService = stressPinsConfigService,
+        _stressPinsGenerator = stressPinsGenerator ?? const StressPinsGenerator(),
         super(const HomeInitial());
 
   final GetCamerasUseCase getCamerasUseCase;
@@ -43,6 +47,8 @@ class HomeCubit extends Cubit<HomeState> {
   final Telemetry? _telemetry;
   final OcorrenciaLocalDatasource? _localOcorrencias;
   final RetryFailedOcorrenciaUseCase? _retryFailedOcorrenciaUseCase;
+  final StressPinsConfigService? _stressPinsConfigService;
+  final StressPinsGenerator _stressPinsGenerator;
 
   bool _initialAlertMapEnabled = true;
   Timer? _cameraIdleDebounce;
@@ -85,13 +91,7 @@ class HomeCubit extends Cubit<HomeState> {
     emit(const HomeLoading());
     final loadStart = DateTime.now().millisecondsSinceEpoch;
 
-    final results = await Future.wait([
-      getCamerasUseCase(const NoParams()),
-      getAlertasUseCase(const NoParams()),
-    ]);
-
-    final camerasResult = results[0] as AppResult<List<Camera>>;
-    final alertasResult = results[1] as AppResult<List<Alerta>>;
+    final camerasResult = await getCamerasUseCase(const NoParams());
 
     final cameras = camerasResult.fold<List<Camera>?>(
       (failure) {
@@ -103,29 +103,23 @@ class HomeCubit extends Cubit<HomeState> {
 
     if (cameras == null) return;
 
-    final alertas = alertasResult.fold<List<Alerta>>(
-      (failure) {
-        if (kDebugMode) {
-          debugPrint('[HomeCubit] Falha ao carregar alertas: ${failure.message}');
-        }
-        return const <Alerta>[];
-      },
-      (data) => data,
-    );
+    final stressAlertas = await _loadStressPinsIfEnabled();
 
     final elapsed = DateTime.now().millisecondsSinceEpoch - loadStart;
     _telemetry?.log(
       'map.initial_load',
       params: {
-        'pinCount': alertas.length,
+        'pinCount': stressAlertas.length,
+        'stressPinCount': stressAlertas.length,
         'elapsedMs': elapsed,
+        'usesViewportLoading': true,
       },
     );
 
     // Popula acumulador para que viewport-fetches subsequentes apenas
     // adicionem pins novos em vez de descartar os ja carregados.
     _accumulatedRemote.clear();
-    for (final alerta in alertas) {
+    for (final alerta in stressAlertas) {
       _accumulatedRemote[alerta.mergeKey] = alerta;
     }
     // Marca o filtro inicial sob o qual o acumulador foi construido. Se o
@@ -140,6 +134,26 @@ class HomeCubit extends Cubit<HomeState> {
         isAlertMapEnabled: _initialAlertMapEnabled,
       ),
     );
+  }
+
+  Future<List<Alerta>> _loadStressPinsIfEnabled() async {
+    final configService = _stressPinsConfigService;
+    if (configService == null) return const [];
+
+    final config = await configService.loadConfig();
+    if (!config.enabled || config.count <= 0) return const [];
+
+    final generated = _stressPinsGenerator.generateSaoPauloPins(
+      count: config.count,
+    );
+    _telemetry?.log(
+      'map.stress_pins_enabled',
+      params: {'pinCount': generated.length},
+    );
+    if (kDebugMode) {
+      debugPrint('[StressPins] Gerados ${generated.length} pins em Sao Paulo.');
+    }
+    return generated;
   }
 
   void _watchLocalPendingAlertas() {
@@ -214,6 +228,11 @@ class HomeCubit extends Cubit<HomeState> {
   Alerta? _pendingToAlerta(PendingOcorrencia item) {
     try {
       final payload = jsonDecode(item.payloadJson) as Map<String, dynamic>;
+      final categoriaName = payload['categoria'] as String? ?? '';
+      final tipo = AlertaTipo.values.firstWhere(
+        (t) => t.name == categoriaName,
+        orElse: () => alertaTipoFromString(categoriaName),
+      );
       return Alerta(
         id: item.clientId,
         clientId: item.clientId,
@@ -222,7 +241,7 @@ class HomeCubit extends Cubit<HomeState> {
         data: DateTime.tryParse(payload['quando'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(item.createdAt),
         descricao: 'Relato comunitario',
-        tipo: AlertaTipo.outros,
+        tipo: tipo,
         latitude: (payload['latitude'] as num).toDouble(),
         longitude: (payload['longitude'] as num).toDouble(),
         localSyncStatus: item.status,

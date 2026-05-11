@@ -57,12 +57,12 @@ sequenceDiagram
 | Idempotencia | `clientId` UUID como ID do doc Firestore | ID gerado pelo servidor | Retry nao duplica ocorrencia. |
 | Sync | `WorkManager` + gatilho ao voltar online | Apenas foreground sync | Melhor resiliencia; iOS ainda depende das restricoes do sistema. |
 | Mapa | Grid clustering local + cache de bitmap | `google_maps_cluster_manager`, supercluster, tiles vetoriais | Remove conflito com `google_maps_flutter`; supercluster/tiles entram se escala crescer muito. |
-| Viewport | `onCameraIdle` + bounds + GeoHash quando disponivel | Buscar todos sempre | Reduz custo e prepara GeoHash/S2 no backend. |
+| Viewport | `onCameraIdle` + bounds + GeoHash obrigatorio | Buscar todos sempre | Reduz custo e prepara GeoHash/S2 no backend. |
 
 ## Como Escalaria
 
 1. Persistir `geohash` ou S2 cell em alertas/ocorrencias no Firestore.
-2. Manter `GetAlertasInBoundsUseCase` consultando por viewport; hoje ele tenta `geohash` e cai para fallback se o backend ainda nao tiver o campo/indice.
+2. Manter `GetAlertasInBoundsUseCase` consultando por viewport; o caminho por `geohash` e obrigatorio para evitar over-fetch em bases grandes.
 3. Criar cache local de alertas por viewport e janela temporal.
 4. Para areas com mais de 50k pins ativos, trocar clusters client-side por tiles raster/vector pre-renderizados.
 5. Adicionar rate limit e moderacao no backend para reduzir abuso.
@@ -74,15 +74,17 @@ defensivo do `GetAlertasInBoundsUseCase` e do `AlertaClusterService.build` para
 1k, 5k, 10k e 50k pins sinteticos. Em modo test/debug, o filtro por bounds +
 tipo + data fica em p95 de ~33 ms com 10k pins carregados, mas sobe para ~146 ms
 com 50k pins; por isso, 10k pins no cliente e o limite operacional para manter a
-filtragem local como fallback, e 50k e o gatilho claro para tornar a consulta
-espacial do servidor obrigatoria.
+filtragem local defensiva, e 50k e o gatilho claro para manter a consulta
+espacial do servidor como caminho obrigatorio.
 
 A primeira migracao e GeoHash no Firestore: cada alerta ganha `geohash`, o
-repository consulta ranges que cobrem o viewport e aplica `tipo`/`data` nos
-indices compostos. A API publica nao muda: `GetAlertasInBoundsUseCase` continua
-recebendo `LatLngBounds`, `zoom` e `AlertaFilter`; a troca fica dentro de
-`AlertaRepository.getAlertasInBounds`, mantendo o filtro em memoria apenas como
-guarda de corretude contra bordas e indices ausentes.
+repository consulta ranges que cobrem o viewport, pagina cada range e aplica
+`tipo` unico no indice composto quando possivel. Filtros de `data` ficam no
+cliente depois do corte espacial, evitando uma query fragil com multiplos campos
+de range/ordenacao. A API publica nao muda: `GetAlertasInBoundsUseCase`
+continua recebendo `LatLngBounds`, `zoom` e `AlertaFilter`; a troca fica dentro
+de `AlertaRepository.getAlertasInBounds`, mantendo o filtro em memoria como
+guarda de corretude contra bordas aproximadas das celulas.
 
 GeoHash continua adequado enquanto o volume por viewport ainda cabe em poucos
 milhares de documentos e a UI precisa de pins interativos. Se areas densas
@@ -96,18 +98,20 @@ individuais apenas no zoom alto.
 ## Indices Firestore Necessarios
 
 A consulta da colecao `alertas` por viewport usa `geohash` como campo principal
-e pode combinar filtros de `tipo` e `data`. Para evitar fallback pesado, crie os
+e pode combinar filtro de `tipo` unico. Para evitar falha de viewport, crie os
 indices compostos abaixo:
 
 - `geohash ASC`
-- `geohash ASC, tipo ASC`
-- `geohash ASC, data ASC`
-- `geohash ASC, tipo ASC, data ASC`
+- `tipo ASC, geohash ASC`
+
+Filtros de `data` sao aplicados depois do corte espacial por `geohash`, no app.
+Isso preserva o shape principal da query e evita depender de indices compostos
+com multiplos campos de range.
 
 Quando o Firestore retornar erro de indice ausente (`failed-precondition`), o
-app registra `map.viewport_query_fallback` com
-`reason=missing_firestore_index`. O fallback existe para manter a UX em bases
-pequenas, mas nao deve ser o caminho normal em producao.
+app registra `map.viewport_query_failed` com
+`reason=missing_firestore_index`. Nao ha fallback in-memory para viewport em
+producao; indice ausente deve falhar de forma observavel e ser corrigido.
 
 ## Metricas De Saude
 
@@ -122,6 +126,24 @@ Logs importantes:
 - `sync.failed` com `clientId`, tentativa e erro.
 - `sync.dead_letter` apos limite de tentativas.
 - `map.viewport_changed` com zoom e contagem de pins.
+
+## Stress Test De Pins
+
+O app possui um modo de stress isolado por Firebase Remote Config para validar
+renderizacao, clustering e filtros com pins falsos em Sao Paulo, sem afetar o
+caminho normal quando a flag esta desligada.
+
+Flags:
+
+- `map_stress_pins_enabled`: booleano. Default `false`.
+- `map_stress_pins_count`: inteiro. Default `0`, maximo aplicado no app:
+  `100000`.
+
+Quando habilitado, o `HomeCubit` gera pins sinteticos deterministicos via
+`StressPinsGenerator.generateSaoPauloPins`, adiciona ao acumulador remoto da
+sessao e emite telemetria `map.stress_pins_enabled` com a quantidade gerada.
+Com a flag desligada, a lista continua vindo apenas do repositorio/Firestore e
+nenhum pin fake e criado.
 
 ## Sync Em Background
 
@@ -142,7 +164,7 @@ quando a conexao transita para online.
 
 - Outbox SQLite possui `next_attempt_at`, `deadLetter` e reset de itens presos em `syncing`.
 - `OcorrenciaSyncWorker` processa apenas itens elegiveis pelo horario de retry; o WorkManager registra task periodica de 15 min com rede conectada e um orchestrator dispara sync quando a rede volta.
-- Alertas possuem caminho de query por viewport usando `geohash` quando o backend ja disponibiliza o campo, com fallback para filtro local.
+- Alertas possuem caminho de query por viewport usando `geohash`, sem fallback in-memory para bases grandes.
 - O `HomeCubit` aplica buffer de 50% no viewport antes de consultar (area 2.25x do visivel). Pan/zoom curtos ficam cobertos pelo bounds expandido anterior, sem nova query e sem flicker; eventos `map.viewport_query_skipped` mostram quando o cache cobriu.
 - Benchmark de viewport documenta p95 de ~33 ms em 10k pins e ~146 ms em 50k pins para o filtro local, definindo o limite para migrar a consulta espacial ao backend.
 - Filtro por raio usa distancia haversine quando centro e raio estao definidos.
@@ -179,6 +201,6 @@ Alertas sugeridos:
 
 - A UI nunca precisa esperar a rede para confirmar o relato.
 - O `clientId` resolve idempotencia de forma simples e robusta.
-- O mapa nao deve buscar todos os pins; ele reage a viewport e zoom, usando GeoHash quando o backend suporta.
+- O mapa nao deve buscar todos os pins; ele reage a viewport e zoom, usando GeoHash como caminho obrigatorio.
 - Grid clustering e cache de `BitmapDescriptor` atacam o gargalo real do Google Maps.
 - O MVP e simples, mas tem caminhos claros para GeoHash, S2 e tiles.

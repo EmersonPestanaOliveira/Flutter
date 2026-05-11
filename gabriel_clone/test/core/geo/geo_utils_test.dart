@@ -35,12 +35,41 @@ void main() {
       }
     });
 
-    test('zoom alto gera mais ranges que zoom baixo', () {
+    test('zoom alto gera ranges validos', () {
       final highZoom = GeoUtils.geohashRangesForBounds(spBounds, zoom: 15);
       final lowZoom = GeoUtils.geohashRangesForBounds(spBounds, zoom: 5);
-      // Zoom alto = precision maior = mais células = mais ranges (ou igual)
       expect(highZoom.length, greaterThanOrEqualTo(1));
       expect(lowZoom.length, greaterThanOrEqualTo(1));
+    });
+
+    test('ranges cobrem pontos internos sem buracos de amostragem', () {
+      final ranges = GeoUtils.geohashRangesForBounds(spBounds, zoom: 15);
+      final precision = ranges.first.lower.length;
+
+      for (var row = 0; row <= 20; row++) {
+        for (var col = 0; col <= 20; col++) {
+          final lat =
+              spBounds.south + (spBounds.north - spBounds.south) * row / 20;
+          final lon =
+              spBounds.west + (spBounds.east - spBounds.west) * col / 20;
+          final hash = GeoUtils.geohash(lat, lon, precision: precision);
+          expect(
+            _isCoveredByRanges(hash, ranges),
+            isTrue,
+            reason: '$lat,$lon -> $hash nao coberto',
+          );
+        }
+      }
+    });
+
+    test('reduz precisao para manter quantidade de ranges sob controle', () {
+      final ranges = GeoUtils.geohashRangesForBounds(
+        spBounds,
+        zoom: 16,
+        maxRanges: 48,
+      );
+
+      expect(ranges.length, lessThanOrEqualTo(48));
     });
   });
 
@@ -81,4 +110,11 @@ void main() {
       expect(bounds.contains(-24.0, -46.65), isFalse);
     });
   });
+}
+
+bool _isCoveredByRanges(String hash, List<GeoHashRange> ranges) {
+  return ranges.any(
+    (range) =>
+        hash.compareTo(range.lower) >= 0 && hash.compareTo(range.upper) <= 0,
+  );
 }

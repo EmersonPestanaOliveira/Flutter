@@ -184,7 +184,7 @@ class _MapUpdateIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.72),
+        color: Colors.black.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(18),
       ),
       child: const Padding(
@@ -221,7 +221,7 @@ class _MapUpdateError extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.70),
+        color: Colors.black.withValues(alpha: 0.70),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Padding(

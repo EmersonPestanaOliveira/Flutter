@@ -113,10 +113,10 @@ class Telemetry {
   /// Sanitiza parâmetros para garantir que nenhum dado sensível seja logado.
   /// Remove chaves e valores que possam conter PII.
   Map<String, Object?> _sanitizeParams(Map<String, Object?> params) {
-    const _blocklist = {'email', 'name', 'phone', 'address', 'content', 'text'};
+    const blocklist = {'email', 'name', 'phone', 'address', 'content', 'text'};
     return {
       for (final e in params.entries)
-        if (!_blocklist.contains(e.key.toLowerCase())) e.key: e.value,
+        if (!blocklist.contains(e.key.toLowerCase())) e.key: e.value,
     };
   }
 }

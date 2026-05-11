@@ -1,7 +1,8 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+
+import 'network_probe.dart';
 
 enum NetworkConnectionStatus { unknown, online, offline, poor }
 
@@ -38,11 +39,9 @@ class NetworkConnectionMonitor extends ChangeNotifier
   Future<void> checkNow() async {
     final stopwatch = Stopwatch()..start();
     try {
-      final result = await InternetAddress.lookup(
-        'google.com',
-      ).timeout(_timeout);
+      final hasInternet = await hasInternetConnection(_timeout);
       stopwatch.stop();
-      if (result.isEmpty || result.first.rawAddress.isEmpty) {
+      if (!hasInternet) {
         _setStatus(NetworkConnectionStatus.offline);
         return;
       }
@@ -54,8 +53,6 @@ class NetworkConnectionMonitor extends ChangeNotifier
       );
     } on TimeoutException {
       _setStatus(NetworkConnectionStatus.poor);
-    } on SocketException {
-      _setStatus(NetworkConnectionStatus.offline);
     } catch (_) {
       _setStatus(NetworkConnectionStatus.unknown);
     }

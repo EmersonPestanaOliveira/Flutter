@@ -24,8 +24,9 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
   final FirebaseFirestore firestore;
   final Telemetry? _telemetry;
 
-  /// Limite máximo de documentos por query (evita over-fetch em produção).
-  static const int _maxPerRange = 500;
+  /// Tamanho da pagina por range. O range e paginado ate acabar, para nao
+  /// truncar pins em areas densas.
+  static const int _pageSize = 500;
 
   @override
   Future<List<AlertaModel>> getAlertas() async {
@@ -42,21 +43,21 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
     }
   }
 
-  /// Busca alertas no viewport usando múltiplos geohash ranges.
+  /// Busca alertas no viewport usando multiplos geohash ranges.
   ///
-  /// Estratégia multi-range:
-  /// 1. Divide o bounds em grade N×N de células.
-  /// 2. Calcula geohash de cada célula.
-  /// 3. Consolida em ranges [lower, upper] contínuos.
-  /// 4. Executa uma query Firestore por range em paralelo.
+  /// Estrategia multi-range:
+  /// 1. Enumera celulas geohash que cobrem todo o viewport.
+  /// 2. Reduz precisao quando a area geraria ranges demais.
+  /// 3. Consolida em ranges [lower, upper] continuos.
+  /// 4. Executa uma query Firestore por range em paralelo e pagina cada range.
   /// 5. Remove duplicados e filtra precisamente por bounds.
   ///
   /// Isso resolve o problema da abordagem single-range, que falha quando
-  /// o viewport cruza múltiplos prefixos de geohash (ex.: centro-borda SP).
+  /// o viewport cruza multiplos prefixos de geohash (ex.: centro-borda SP).
   ///
   /// Filtros aplicados aqui (datasource), não em memória:
-  /// - tipos de alerta (se filtro ativo)
-  /// - data (dateFrom/dateTo via query ou pós-filtro local)
+  /// - tipo unico de alerta, quando filtro ativo
+  /// - data em memoria, depois do corte espacial por geohash
   @override
   Future<List<AlertaModel>> getAlertasInBounds({
     required GeoBounds bounds,
@@ -76,7 +77,7 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
         return [];
       }
 
-      // Executa queries em paralelo (uma por range)
+      // Executa queries em paralelo (uma por range), com paginacao interna.
       final futures = ranges.map((range) => _queryRange(range, filter));
       final results = await Future.wait(futures);
 
@@ -92,20 +93,6 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
         }
       }
 
-      if (alertas.isEmpty) {
-        _logFallbackUsed(
-          reason: 'empty_geohash_result',
-          filter: filter,
-          rangeCount: ranges.length,
-          fallbackUsed: true,
-        );
-        debugPrint(
-          '[AlertaDatasource] Nenhum alerta em ${ranges.length} ranges. '
-          'Usando fallback.',
-        );
-        return _fallbackInBounds(bounds, filter);
-      }
-
       return alertas;
     } catch (e) {
       final missingIndex = _isMissingIndexError(e);
@@ -115,19 +102,17 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
           params: _queryTelemetryParams(
             filter: filter,
             rangeCount: rangeCount,
-            fallbackUsed: true,
           ),
         );
       }
-      _logFallbackUsed(
+      _logViewportQueryFailed(
         reason: missingIndex ? 'missing_firestore_index' : 'query_error',
         filter: filter,
         rangeCount: rangeCount,
         errorType: e.runtimeType.toString(),
-        fallbackUsed: true,
       );
       debugPrint('[AlertaDatasource] Erro na query por bounds: $e');
-      return _fallbackInBounds(bounds, filter);
+      throw BackendErrorMapper.toFailure(e);
     }
   }
 
@@ -139,34 +124,26 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
     return message.contains('index') || message.contains('failed-precondition');
   }
 
-  void _logFallbackUsed({
+  void _logViewportQueryFailed({
     required String reason,
     required AlertaFilter filter,
     required int rangeCount,
-    required bool fallbackUsed,
     String? errorType,
   }) {
     final params = _queryTelemetryParams(
       filter: filter,
       rangeCount: rangeCount,
-      fallbackUsed: fallbackUsed,
     );
-    _telemetry?.log('alertas_query_fallback_used', params: {
-      ...params,
-      'reason': reason,
-      if (errorType != null) 'errorType': errorType,
-    });
-    _telemetry?.log('map.viewport_query_fallback', params: {
-      ...params,
-      'reason': reason,
-      if (errorType != null) 'errorType': errorType,
-    });
+    final eventParams = {...params, 'reason': reason};
+    if (errorType != null) {
+      eventParams['errorType'] = errorType;
+    }
+    _telemetry?.log('map.viewport_query_failed', params: eventParams);
   }
 
   Map<String, Object?> _queryTelemetryParams({
     required AlertaFilter filter,
     required int rangeCount,
-    required bool fallbackUsed,
   }) {
     return {
       'collection': 'alertas',
@@ -176,7 +153,6 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
       'hasDateFilter': filter.dateFrom != null || filter.dateTo != null,
       'hasDateFrom': filter.dateFrom != null,
       'hasDateTo': filter.dateTo != null,
-      'fallbackUsed': fallbackUsed,
     };
   }
 
@@ -184,45 +160,34 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
     GeoHashRange range,
     AlertaFilter filter,
   ) async {
-    Query<Map<String, dynamic>> query = firestore
+    Query<Map<String, dynamic>> baseQuery = firestore
         .collection('alertas')
         .orderBy('geohash')
         .startAt([range.lower])
         .endAt([range.upper])
-        .limit(_maxPerRange);
+        .limit(_pageSize);
 
     // Filtro por tipo aplicado no Firestore quando possível
     if (filter.tipos.length == 1) {
       final tipo = filter.tipos.first;
-      query = query.where('tipo', isEqualTo: tipo.label);
+      baseQuery = baseQuery.where('tipo', isEqualTo: tipo.label);
     }
 
-    // Filtro de data inicial aplicado no Firestore
-    if (filter.dateFrom != null) {
-      query = query.where(
-        'data',
-        isGreaterThanOrEqualTo: Timestamp.fromDate(filter.dateFrom!),
-      );
+    final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    QueryDocumentSnapshot<Map<String, dynamic>>? lastDoc;
+    while (true) {
+      final query = lastDoc == null
+          ? baseQuery
+          : baseQuery.startAfterDocument(lastDoc);
+      final snapshot = await query.get();
+      if (snapshot.docs.isEmpty) break;
+
+      docs.addAll(snapshot.docs);
+      if (snapshot.docs.length < _pageSize) break;
+      lastDoc = snapshot.docs.last;
     }
 
-    // Filtro de data final aplicado no Firestore
-    if (filter.dateTo != null) {
-      final endOfDay = DateTime(
-        filter.dateTo!.year,
-        filter.dateTo!.month,
-        filter.dateTo!.day,
-        23,
-        59,
-        59,
-      );
-      query = query.where(
-        'data',
-        isLessThanOrEqualTo: Timestamp.fromDate(endOfDay),
-      );
-    }
-
-    final snapshot = await query.get();
-    var results = snapshot.docs.map(AlertaModel.fromFirestore).toList();
+    var results = docs.map(AlertaModel.fromFirestore).toList();
 
     // Filtro em memória para múltiplos tipos (Firestore não suporta whereIn
     // combinado com orderBy de campo diferente sem índice composto)
@@ -233,31 +198,25 @@ class AlertaRemoteDatasourceImpl implements AlertaRemoteDatasource {
           .toList();
     }
 
+    if (filter.dateFrom != null) {
+      results = results
+          .where((a) => !a.data.isBefore(filter.dateFrom!))
+          .toList();
+    }
+
+    if (filter.dateTo != null) {
+      final endOfDay = DateTime(
+        filter.dateTo!.year,
+        filter.dateTo!.month,
+        filter.dateTo!.day,
+        23,
+        59,
+        59,
+      );
+      results = results.where((a) => !a.data.isAfter(endOfDay)).toList();
+    }
+
     return results;
   }
 
-  /// Fallback para coleções pequenas ou quando geohash não está indexado.
-  ///
-  /// AVISO: este fallback NÃO deve ser acionado em produção com > 5k docs.
-  /// Configure o índice de geohash no Firestore antes do lançamento.
-  /// Veja docs/firestore_indexes.md para os indices compostos esperados.
-  Future<List<AlertaModel>> _fallbackInBounds(
-    GeoBounds bounds,
-    AlertaFilter filter,
-  ) async {
-    final all = await getAlertas();
-    return all.where((alerta) {
-      if (!bounds.contains(alerta.latitude, alerta.longitude)) return false;
-      if (filter.tipos.isNotEmpty && !filter.tipos.contains(alerta.tipo)) {
-        return false;
-      }
-      if (filter.dateFrom != null && alerta.data.isBefore(filter.dateFrom!)) {
-        return false;
-      }
-      if (filter.dateTo != null && alerta.data.isAfter(filter.dateTo!)) {
-        return false;
-      }
-      return true;
-    }).toList(growable: false);
-  }
 }

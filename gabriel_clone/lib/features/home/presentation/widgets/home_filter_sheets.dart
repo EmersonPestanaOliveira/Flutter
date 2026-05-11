@@ -4,7 +4,6 @@ import '../../../../core/design_system/app_colors.dart';
 import '../../domain/entities/alerta.dart';
 import '../../domain/entities/camera.dart';
 import '../controllers/home_filter_state.dart';
-import '../utils/home_date_utils.dart';
 import 'alert_filters_sheet.dart';
 import 'camera_filters_sheet.dart';
 
@@ -48,10 +47,8 @@ Future<AlertFilterResult?> showHomeAlertFilters({
         alertas: alertas,
         selectedBairro: filters.selectedAlertBairro,
         selectedCidade: filters.selectedAlertCidade,
-        selectedDateKey: filters.selectedAlertDateKey,
+        selectedPeriodo: filters.selectedAlertPeriodo,
         selectedTipo: filters.selectedAlertTipo,
-        dateKeyBuilder: homeDateKey,
-        dateLabelBuilder: formatHomeDate,
       );
     },
   );

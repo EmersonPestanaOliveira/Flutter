@@ -15,7 +15,7 @@ e observabilidade) com uma implementação real, testada e instrumentada — nã
 apenas slides. A maturidade do código é alta para uma vaga sênior: pipeline de
 ocorrências offline com idempotência por `clientId`, outbox SQLite com backoff
 + jitter e dead-letter, sync em background via WorkManager + recuperação online
-desacoplada de UI, viewport por GeoHash multi-range com fallback observável,
+desacoplada de UI, viewport por GeoHash multi-range com falha observável,
 clustering local com policy explícita e cache de `BitmapDescriptor`. O que falta
 são refinos pontuais e talking points afiados, não fundações.
 
@@ -42,7 +42,7 @@ Pontos defensáveis na entrevista:
 
 | Requisito | Implementação |
 |---|---|
-| Milhares de pins fluidos | Viewport-based loading: `HomeCubit.onCameraIdle` com debounce de 300 ms aciona `GetAlertasInBoundsUseCase`; o repositório consulta Firestore com **GeoHash multi-range** (`AlertaRemoteDatasourceImpl.getAlertasInBounds`), executando ranges em paralelo e deduplicando. Filtros de `tipo`/`data` são aplicados no Firestore quando o índice composto existe. |
+| Milhares de pins fluidos | Viewport-based loading: `HomeCubit.onCameraIdle` com debounce de 300 ms aciona `GetAlertasInBoundsUseCase`; o repositório consulta Firestore com **GeoHash multi-range** (`AlertaRemoteDatasourceImpl.getAlertasInBounds`), executando ranges em paralelo, paginando cada range e deduplicando. Filtro de `tipo` único é aplicado no Firestore quando o índice composto existe; `data` fica no app depois do corte espacial. |
 | Cluster | `AlertaClusterService.build` usa grid local (`GeoUtils.clusterCell`) com `ClusterPolicy` configurável (mín. 501 pins para ativar, `maxZoomForClustering=15.5`, alta densidade ≥ 8). Retorna `AlertaClusterResult` com `enabled`, `reason` e `elapsedMs` para telemetria. |
 | Cache de ícones | `PinCache` é singleton estático com chaves `pin_${tipo.name}` e `cluster_${bucket}` (buckets 1/10/50/100/500). `resolveAlertPin` loga `map.icon_cache_hit` com sampling de 1:50 e `map.icon_cache_miss` integral. Cache não some entre rebuilds do `HomeCubit`. |
 | Filtrar pins (ex.: últimos 7 dias) | `AlertaFilter` (tipos + dateFrom + dateTo) é parte do `HomeState`; `HomeCubit.updateFilter` invalida cache e força re-fetch usando o viewport corrente. Filtragem dupla: Firestore (quando dá pra empurrar) + memória (defensivo, com benchmark documentado em `docs/BENCHMARK_MAP.md`). |
@@ -54,9 +54,9 @@ Pontos defensáveis:
   filtro não mudaram (`_boundsEqual` com epsilon e tolerância de zoom 0.5).
 - `GoogleMap.onCameraIdle` (não `onCameraMove`) com debounce previne
   flood durante gestos. O `_viewportQuerySeq` descarta respostas obsoletas.
-- Quando o índice do Firestore some, o app não quebra: cai para `_fallbackInBounds`
-  e emite `map.viewport_query_fallback` com `reason=missing_firestore_index` —
-  ou seja, o produto continua funcionando enquanto a infra é corrigida.
+- Quando o índice do Firestore some, o app falha de forma observável com
+  `map.viewport_query_failed` e `reason=missing_firestore_index` — ou seja,
+  a infra errada não fica mascarada por over-fetch limitado no cliente.
 
 ### 3. Arquitetura e gerenciamento de estado
 
@@ -79,9 +79,9 @@ Pontos defensáveis:
 
 | Requisito | Implementação |
 |---|---|
-| Testar partes móveis | Testes unitários cobrem: outbox DAO (status, backoff, dead-letter, stale syncing), sync worker (sucesso, falha recuperável, falha permanente, dead-letter, cleanup), orchestrator (debounce de recuperação, no-op em flapping, idempotência durante sync), filtros do `HomeCubit`, cluster service, geo-utils, formulário (validação, criação, fallback offline) e benchmark de viewport. 23 arquivos de teste, ~2100 linhas. |
+| Testar partes móveis | Testes unitários cobrem: outbox DAO (status, backoff, dead-letter, stale syncing), sync worker (sucesso, falha recuperável, falha permanente, dead-letter, cleanup), orchestrator (debounce de recuperação, no-op em flapping, idempotência durante sync), filtros do `HomeCubit`, cluster service, geo-utils, formulário (validação, criação, fallback offline), stress pins e benchmark de viewport. 25 arquivos de teste. |
 | Saúde em produção | `Telemetry` encapsula `FirebaseCrashlytics` (logs e `recordError`) + `FirebasePerformance` (`trace`). API mockável (`FakeTelemetry` nos testes). Sanitização automática de PII na chave dos params. |
-| Métricas | Eventos padronizados em `TelemetryEvents`: `map.initial_load`, `map.viewport_loaded`, `map.viewport_query_failed`, `map.viewport_query_fallback`, `map.icon_cache_hit/miss`, `sync.started/finished/item_*`, `sync.dead_letter`, `sync.background_started/finished`, `sync.network_recovered_trigger`, `ocorrencia.created_offline`, `offline.queue_snapshot` (avg/max age, retryCount, deadLetter). |
+| Métricas | Eventos padronizados em `TelemetryEvents`: `map.initial_load`, `map.viewport_loaded`, `map.viewport_query_failed`, `map.icon_cache_hit/miss`, `sync.started/finished/item_*`, `sync.dead_letter`, `sync.background_started/finished`, `sync.network_recovered_trigger`, `ocorrencia.created_offline`, `offline.queue_snapshot` (avg/max age, retryCount, deadLetter). |
 | Alertas sugeridos | Documentados na arquitetura: taxa de sync < 95 %/h, p95 time-to-sync > 30 min, profundidade da outbox p95 > 10/usuário, crash-free users < 99,5 %. |
 
 ## Gaps que valem mexer antes da entrevista
@@ -93,24 +93,19 @@ Nenhum bloqueia a apresentação, mas vale antecipar antes de levar pancada:
    ou ambiente corporativo, é honesto reconhecer que `connectivity_plus` (já no
    pubspec) cobre o caso de "rede caiu" e o lookup é apenas o reforço para
    detectar internet real (captive portals, DNS preso). Talking point, não fix.
-2. **Crypto da outbox usa `InMemoryLocalCryptoKeyStore` por padrão no construtor
-   do `OcorrenciaLocalDatasourceImpl`.** Em produção a DI injeta o
-   `AesGcmLocalPayloadCrypto` com `SecureStorageLocalCryptoKeyStore`, mas o
-   default seguro deveria estar no construtor para não cair num caminho fraco
-   se alguém esquecer da DI. Pequeno ajuste defensivo: tornar o `crypto`
-   obrigatório (não-nullable, sem fallback in-memory) e deixar o uso sem
-   cripto explícito apenas em `@visibleForTesting`.
+2. **Crypto da outbox agora é obrigatório no `OcorrenciaLocalDatasourceImpl`.**
+   A DI injeta `AesGcmLocalPayloadCrypto` com `SecureStorageLocalCryptoKeyStore`.
+   Nos testes, o uso de `InMemoryLocalCryptoKeyStore` fica explícito.
 3. **`SecureOccurrenceStore` existe e duplica a lógica do
    `OcorrenciaLocalDatasourceImpl`.** Ambos criptografam payload na enfileiragem
    e descriptografam na leitura, mas o app usa o datasource. Vale ou consolidar
    (datasource passa a delegar para `SecureOccurrenceStore`) ou apagar a fachada
    não usada para evitar pergunta "por que tem dois?".
-4. **iOS background.** `configureBackgroundOcorrenciaSync` chama `Workmanager().registerPeriodicTask`,
-   que no iOS depende de `BGTaskScheduler` configurado no `Info.plist` e
-   `AppDelegate` Swift. O comentário no código já diz "best-effort", mas o app
-   precisa do registro nativo para o `15 min` realmente disparar. Bom levantar
-   isso por sinceridade (e mostrar que conhece a limitação) — não tentar
-   esconder na entrevista.
+4. **iOS background.** O `Info.plist` declara `UIBackgroundModes` e
+   `BGTaskSchedulerPermittedIdentifiers`, mas a execução continua best-effort:
+   o sistema decide a janela conforme bateria, uso e rede. Bom levantar isso por
+   sinceridade (e mostrar que conhece a limitação) — não tentar vender como SLA
+   de 15 min no iOS.
 5. **Retry de attachments.** O `OcorrenciaSyncWorker` só refaz `createOcorrencia`,
    que internamente faz upload novamente para o Storage. Vale falar sobre
    resumable upload (`UploadTask.resume` do Firebase Storage) como evolução

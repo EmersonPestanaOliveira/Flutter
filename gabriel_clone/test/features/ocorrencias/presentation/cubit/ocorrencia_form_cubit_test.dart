@@ -2,16 +2,14 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:record/record.dart';
 import 'package:uuid/data.dart';
 import 'package:uuid/uuid.dart';
-import 'package:uuid/v4.dart';
 
 import 'package:gabriel_clone/core/errors/failures.dart';
 import 'package:gabriel_clone/core/observability/telemetry.dart';
 import 'package:gabriel_clone/core/types/app_result.dart';
-import 'package:gabriel_clone/features/ocorrencias/data/services/ocorrencia_service.dart';
+import 'package:gabriel_clone/features/home/domain/enums/alerta_tipo.dart';
 import 'package:gabriel_clone/features/ocorrencias/domain/usecases/create_ocorrencia_usecase.dart';
 import 'package:gabriel_clone/features/ocorrencias/presentation/cubit/ocorrencia_form_cubit.dart';
 import 'package:gabriel_clone/features/ocorrencias/presentation/cubit/ocorrencia_form_state.dart';
@@ -52,18 +50,15 @@ class _FakeTelemetry extends Telemetry {
 
 /// Stub de AudioRecorder que não acessa nada de plataforma.
 class _FakeRecorder extends Fake implements AudioRecorder {
-  bool _recording = false;
   String? _startedPath;
 
   @override
   Future<void> start(RecordConfig config, {required String path}) async {
-    _recording = true;
     _startedPath = path;
   }
 
   @override
   Future<String?> stop() async {
-    _recording = false;
     return _startedPath;
   }
 
@@ -119,6 +114,7 @@ OcorrenciaFormData _validData() => const OcorrenciaFormData(
   selectedLocation: LatLng(-23.5, -46.6),
   date: null, // será sobrescrito via cubit
   time: '10:00',
+  categoria: AlertaTipo.rouboFurto,
   acknowledgesPoliceReport: true,
   acceptsPrivacy: true,
 ).copyWith(date: DateTime(2026, 5, 6));
@@ -198,6 +194,12 @@ void main() {
       cubit.onTimeSelected('14:30');
       final state = cubit.state as OcorrenciaFormIdle;
       expect(state.formData.time, '14:30');
+    });
+
+    test('onCategoriaSelected atualiza categoria', () {
+      cubit.onCategoriaSelected(AlertaTipo.estelionato);
+      final state = cubit.state as OcorrenciaFormIdle;
+      expect(state.formData.categoria, AlertaTipo.estelionato);
     });
 
     test('onAcceptsPrivacyChanged atualiza acceptsPrivacy', () {

@@ -12,7 +12,6 @@ import 'local_payload_crypto.dart';
 /// - Descriptografar ao ler.
 /// - Delegar ao DAO para operações de fila.
 ///
-/// ## TODO (produção)
 ///
 /// Quando [LocalPayloadCrypto] for implementado com AES-GCM, esta classe
 /// não precisará mudar — apenas a injeção de dependência muda no DI container.

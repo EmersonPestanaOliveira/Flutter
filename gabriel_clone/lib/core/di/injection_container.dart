@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +19,7 @@ import '../../features/home/data/datasources/alerta_remote_datasource.dart';
 import '../../features/home/data/datasources/camera_remote_datasource.dart';
 import '../../features/home/data/repositories/alerta_repository_impl.dart';
 import '../../features/home/data/repositories/camera_repository_impl.dart';
+import '../../features/home/data/services/stress_pins_config_service.dart';
 import '../../features/home/danger_zones/data/danger_zone_location_monitor.dart';
 import '../../features/home/danger_zones/data/danger_zone_notification_service.dart';
 import '../../features/home/danger_zones/data/danger_zone_remote_config_service.dart';
@@ -25,6 +27,7 @@ import '../../features/home/danger_zones/data/danger_zone_service.dart';
 import '../../features/home/danger_zones/domain/danger_zone_calculator.dart';
 import '../../features/home/domain/repositories/alerta_repository.dart';
 import '../../features/home/domain/repositories/camera_repository.dart';
+import '../../features/home/domain/services/stress_pins_generator.dart';
 import '../../features/home/domain/usecases/get_alertas_in_bounds_usecase.dart';
 import '../../features/home/domain/usecases/get_alertas_usecase.dart';
 import '../../features/home/domain/usecases/get_cameras_usecase.dart';
@@ -43,7 +46,9 @@ final sl = GetIt.instance;
 
 Future<void> setupLocator() async {
   final preferences = await SharedPreferences.getInstance();
-  final documentsDir = await getApplicationDocumentsDirectory();
+  final documentsDirPath = kIsWeb
+      ? ''
+      : (await getApplicationDocumentsDirectory()).path;
 
   sl
     // ── Core ──────────────────────────────────────────────────────────────
@@ -71,7 +76,7 @@ Future<void> setupLocator() async {
       () => AesGcmLocalPayloadCrypto(sl()),
     )
     ..registerLazySingleton<AttachmentStorage>(
-      () => EncryptedAttachmentStorage(documentsDir.path, sl()),
+      () => EncryptedAttachmentStorage(documentsDirPath, sl()),
     )
     // ── Danger Zones ──────────────────────────────────────────────────────
     ..registerLazySingleton(DangerZoneRemoteConfigService.new)
@@ -94,6 +99,10 @@ Future<void> setupLocator() async {
     ..registerLazySingleton<AlertaRemoteDatasource>(
       () => AlertaRemoteDatasourceImpl(sl(), telemetry: sl()),
     )
+    ..registerLazySingleton<StressPinsConfigService>(
+      FirebaseStressPinsConfigService.new,
+    )
+    ..registerLazySingleton(() => const StressPinsGenerator())
     ..registerLazySingleton<CameraRepository>(() => CameraRepositoryImpl(sl()))
     ..registerLazySingleton<AlertaRepository>(() => AlertaRepositoryImpl(sl()))
     ..registerFactory(() => GetCamerasUseCase(sl()))
@@ -108,6 +117,8 @@ Future<void> setupLocator() async {
         telemetry: sl(),
         localOcorrencias: sl(),
         retryFailedOcorrenciaUseCase: sl(),
+        stressPinsConfigService: sl(),
+        stressPinsGenerator: sl(),
       ),
     )
     // ── Database (SQLite) ─────────────────────────────────────────────────

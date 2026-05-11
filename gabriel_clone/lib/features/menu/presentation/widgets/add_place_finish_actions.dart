@@ -1,5 +1,7 @@
 ﻿part of '../menu_pages.dart';
 
+// ignore_for_file: invalid_use_of_protected_member
+
 extension _AddPlaceFinishActions on _AddPlacePageState {
   Future<void> _validateFace() async {
     final status = await Permission.camera.request();

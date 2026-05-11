@@ -1,5 +1,7 @@
 part of 'home_view.dart';
 
+// ignore_for_file: invalid_use_of_protected_member
+
 extension _HomeViewActions on _HomeViewState {
   Future<void> _loadPreferences() async {
     final alertMapEnabled = await _preferences.loadAlertMapEnabled();
@@ -23,8 +25,7 @@ extension _HomeViewActions on _HomeViewState {
 
   void _onPinsReady(String pinsKey) {
     if (!mounted ||
-        (_pinReadiness.readyPinsKey == pinsKey &&
-            _pinReadiness.arePinsReady)) {
+        (_pinReadiness.readyPinsKey == pinsKey && _pinReadiness.arePinsReady)) {
       return;
     }
 
@@ -69,7 +70,7 @@ extension _HomeViewActions on _HomeViewState {
         alertQuery: '',
         selectedAlertBairro: null,
         selectedAlertCidade: null,
-        selectedAlertDateKey: null,
+        selectedAlertPeriodo: null,
         selectedAlertTipo: null,
       );
       _markPinsDirty(setStateAlreadyCalled: true);
@@ -110,28 +111,27 @@ extension _HomeViewActions on _HomeViewState {
       return;
     }
 
-    // Atualiza filtros de UI (bairro, cidade, dateKey para texto)
+    // Atualiza filtros de UI (bairro, cidade, período)
     setState(() {
       _filters = _filters.copyWith(
         selectedAlertBairro: result.bairro,
         selectedAlertCidade: result.cidade,
-        selectedAlertDateKey: result.dateKey,
+        selectedAlertPeriodo: result.periodo,
         selectedAlertTipo: result.tipo,
       );
       _markPinsDirty(setStateAlreadyCalled: true);
     });
 
-    // Atualiza o filtro de domínio no cubit (tipo + date range)
-    // O tipo do sheet é mapeado para Set<AlertaTipo> no AlertaFilter.
-    final dateFrom = _parseDateFrom(result.dateKey);
-    final dateTo = _parseDateTo(result.dateKey);
+    // Converte o período selecionado em intervalo de datas para o AlertaFilter.
+    final dateFrom = result.periodo?.dateFrom;
+    final dateTo = result.periodo != null ? DateTime.now() : null;
     context.read<HomeCubit>().updateFilter(
-          AlertaFilter(
-            tipos: result.tipo != null ? {result.tipo!} : const {},
-            dateFrom: dateFrom,
-            dateTo: dateTo,
-          ),
-        );
+      AlertaFilter(
+        tipos: result.tipo != null ? {result.tipo!} : const {},
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+      ),
+    );
   }
 
   Future<void> _goToCurrentLocation() async {
@@ -144,8 +144,9 @@ extension _HomeViewActions on _HomeViewState {
       return false;
     }
 
-    final didStartRetry =
-        await context.read<HomeCubit>().retryOcorrencia(clientId.trim());
+    final didStartRetry = await context.read<HomeCubit>().retryOcorrencia(
+      clientId.trim(),
+    );
     if (!mounted) {
       return didStartRetry;
     }
@@ -171,23 +172,4 @@ extension _HomeViewActions on _HomeViewState {
 
     setState(_pinReadiness.markDirty);
   }
-
-  // ---------------------------------------------------------------------------
-  // Helpers de conversão de dateKey (formato 'YYYY-MM-DD') → DateTime
-  // ---------------------------------------------------------------------------
-
-  /// 'YYYY-MM-DD' → início do dia
-  DateTime? _parseDateFrom(String? dateKey) {
-    if (dateKey == null || dateKey.isEmpty) return null;
-    final parts = dateKey.split('-');
-    if (parts.length != 3) return null;
-    final year = int.tryParse(parts[0]);
-    final month = int.tryParse(parts[1]);
-    final day = int.tryParse(parts[2]);
-    if (year == null || month == null || day == null) return null;
-    return DateTime(year, month, day);
-  }
-
-  /// 'YYYY-MM-DD' → fim do dia (mesmo dia)
-  DateTime? _parseDateTo(String? dateKey) => _parseDateFrom(dateKey);
 }

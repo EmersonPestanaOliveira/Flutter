@@ -70,29 +70,6 @@ class _MenuFormScaffoldState extends State<_MenuFormScaffold> {
   }
 }
 
-class _MenuInfoScaffold extends StatelessWidget {
-  const _MenuInfoScaffold({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: SafeArea(
-        child: ListView.separated(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          itemBuilder: (context, index) => children[index],
-          separatorBuilder: (context, index) =>
-              const SizedBox(height: AppSpacing.lg),
-          itemCount: children.length,
-        ),
-      ),
-    );
-  }
-}
-
 class _InfoBlock extends StatelessWidget {
   const _InfoBlock({required this.title, required this.body});
 

@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Apresentacao - Case Tecnico Gabriel</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm;
+    }
+
+    body {
+      color: #13233a;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    h1, h2, h3 {
+      color: #00315f;
+      line-height: 1.18;
+      margin: 0 0 8px;
+    }
+
+    h1 {
+      font-size: 26px;
+      margin-bottom: 6px;
+    }
+
+    h2 {
+      border-top: 1px solid #d8e2ec;
+      font-size: 18px;
+      margin-top: 22px;
+      padding-top: 14px;
+    }
+
+    h3 {
+      font-size: 14px;
+      margin-top: 14px;
+    }
+
+    p {
+      margin: 0 0 8px;
+    }
+
+    ul {
+      margin: 6px 0 10px 20px;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+
+    code {
+      background: #eef4f7;
+      border-radius: 3px;
+      color: #113b5f;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 11px;
+      padding: 1px 4px;
+    }
+
+    .subtitle {
+      color: #557089;
+      font-size: 13px;
+      margin-bottom: 18px;
+    }
+
+    .callout {
+      background: #eef8f3;
+      border-left: 4px solid #00a878;
+      margin: 12px 0;
+      padding: 10px 12px;
+    }
+
+    .warning {
+      background: #fff6e6;
+      border-left-color: #e09f20;
+    }
+
+    .diagram {
+      background: #f7fafc;
+      border: 1px solid #d8e2ec;
+      border-radius: 6px;
+      color: #1f344a;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 10.5px;
+      line-height: 1.35;
+      margin: 10px 0 14px;
+      padding: 10px 12px;
+      white-space: pre;
+    }
+
+    .page-break {
+      break-before: page;
+    }
+  </style>
+</head>
+<body>
+  <h1>Case Tecnico Gabriel: Mapa Comunitario</h1>
+  <p class="subtitle">Roteiro de apresentacao tecnica com arquitetura, decisoes, analogias e fluxos.</p>
+
+  <div class="callout">
+    <strong>Abertura sugerida:</strong>
+    Eu pensei o Mapa Comunitario como duas funcionalidades que precisam conversar muito bem:
+    primeiro, o usuario precisa conseguir registrar uma ocorrencia mesmo sem internet; segundo,
+    o mapa precisa continuar fluido mesmo com muitos pins. Por isso a arquitetura gira em torno
+    de tres ideias: offline-first, carregamento por viewport e observabilidade.
+  </div>
+
+  <div class="diagram">Usuario -> App Flutter -> Fila local SQLite -> Sync Worker -> Firestore + Storage
+                         \-> Mapa Comunitario <- Alertas remotos + pendentes locais</div>
+
+  <h2>1. Offline-First</h2>
+  <p>O ponto principal e que a UI nao depende da rede para confirmar o relato. Quando o usuario envia uma
+  ocorrencia, o app gera um <code>clientId</code>, salva o payload no SQLite, persiste os anexos e retorna
+  sucesso local. O envio real acontece depois, pelo sync.</p>
+
+  <div class="diagram">Formulario -> UseCase -> Repository -> SQLite Outbox
+                                  -> sucesso local para UI
+
+SyncWorker -> busca queued/failed -> Firestore + Storage -> markSynced -> cleanup</div>
+
+  <h3>Por que SQLite?</h3>
+  <p>Para uma fila local pequena e critica, SQL explicito e simples, auditavel e facil de testar em memoria.
+  Nao ha necessidade de uma camada maior com codegen para esse volume e esse tipo de dado.</p>
+
+  <h3>Por que clientId?</h3>
+  <p>Para idempotencia. O <code>clientId</code> funciona como numero de protocolo: se o sync tentar enviar
+  duas vezes, ele grava no mesmo documento remoto em vez de duplicar a ocorrencia.</p>
+
+  <div class="callout">
+    <strong>Analogia:</strong> o app e como uma agencia dos Correios. Mesmo sem internet, o usuario entrega
+    a carta. Ela fica numa caixa local segura. Quando a conexao volta, um funcionario tenta enviar. Se falhar,
+    agenda nova tentativa; se falhar muitas vezes, separa para revisao manual.
+  </div>
+
+  <h2>2. Seguranca Local</h2>
+  <p>O payload textual e numerico da ocorrencia e criptografado antes de ir para o SQLite. A chave fica no
+  secure storage. Os anexos ficam em armazenamento persistente proprio, para sobreviver a restart do app.</p>
+  <ul>
+    <li>Payload textual: SQLite, criptografado.</li>
+    <li>Anexos: arquivos persistidos localmente antes do upload.</li>
+    <li>Upload: Firebase Storage no momento do sync.</li>
+    <li>Documento final: Firestore usando <code>clientId</code> como ID.</li>
+  </ul>
+
+  <h2>3. Sync Resiliente</h2>
+  <p>O sync tem tres gatilhos: tentativa imediata quando o app ja esta online, WorkManager periodico e
+  orquestrador quando a rede volta.</p>
+
+  <div class="diagram">SQLite queued/failed
+        |
+        v
+SyncWorker -> tenta enviar
+        |-- sucesso ----------> markSynced + limpa anexos
+        |-- falha recuperavel -> backoff + retry
+        |-- muitas falhas ----> deadLetter -> retry manual</div>
+
+  <h3>Por que backoff com jitter?</h3>
+  <p>Para evitar que muitos usuarios batam no backend ao mesmo tempo quando a rede volta. Cada cliente espera
+  um intervalo ligeiramente diferente.</p>
+
+  <div class="callout">
+    <strong>Analogia:</strong> se uma central telefonica cai e volta, voce nao quer todo mundo ligando no
+    mesmo segundo. O backoff distribui essas tentativas.
+  </div>
+
+  <h2 class="page-break">4. Mapa Com Muitos Pins</h2>
+  <p>O maior erro seria buscar todos os pins sempre. A solucao usa carregamento por viewport: o app consulta
+  apenas os alertas dentro da area visivel do mapa, com um buffer ao redor.</p>
+
+  <div class="diagram">Usuario move o mapa
+        |
+        v
+onCameraIdle -> debounce 300ms -> calcula viewport + buffer
+        |
+        v
+Viewport ja coberto?
+   |-- sim: reusa pins carregados
+   |-- nao: query por GeoHash -> mescla pins -> renderiza</div>
+
+  <h3>Por que onCameraIdle?</h3>
+  <p>Durante o gesto, o mapa pode emitir muitos eventos. A app so precisa agir quando o usuario para de mexer,
+  reduzindo chamadas e processamento.</p>
+
+  <h3>Por que buffer?</h3>
+  <p>Se o usuario arrasta pouco o mapa, a nova area visivel ainda esta dentro da area ja carregada. Isso evita
+  flicker e reduz chamadas ao backend.</p>
+
+  <div class="callout">
+    <strong>Analogia:</strong> e como streaming que baixa o trecho atual e um pouco do proximo. Quando voce
+    avanca um pouco, nao precisa carregar tudo de novo.
+  </div>
+
+  <h2>5. GeoHash</h2>
+  <p>GeoHash transforma latitude e longitude em uma string ordenavel. Isso permite consultar ranges no
+  Firestore para cobrir o viewport.</p>
+
+  <div class="diagram">Viewport -> celulas GeoHash -> ranges lower/upper -> queries Firestore
+                                              -> filtro preciso em memoria -> pins finais</div>
+
+  <p>Mesmo usando GeoHash, existe filtro local defensivo porque a celula cobre uma area aproximada. A query
+  reduz muito o conjunto de dados; o filtro local garante precisao nas bordas.</p>
+
+  <h2>6. Clustering</h2>
+  <p>Renderizar muitos markers individuais no Google Maps custa caro. O clustering agrupa pins quando o volume
+  e alto e o zoom esta mais aberto.</p>
+
+  <div class="diagram">Lista de alertas -> precisa clusterizar?
+        |-- poucos pins ou zoom alto -> pins individuais
+        |-- muitos pins              -> agrupa por celula -> marker de cluster</div>
+
+  <p>Cluster nao deve ser usado sempre. No zoom alto, o usuario quer precisao; em visao macro, ele quer densidade.</p>
+
+  <div class="callout">
+    <strong>Analogia:</strong> olhando o Brasil, faz sentido ver "200 ocorrencias em Sao Paulo". Olhando uma rua,
+    o usuario quer o pin exato.
+  </div>
+
+  <h2>7. Cache de Icones</h2>
+  <p>Criar <code>BitmapDescriptor</code> para marker tem custo. Por isso os icones sao cacheados por tipo de alerta
+  e por bucket de cluster.</p>
+
+  <div class="diagram">AlertaTipo -> PinCache tem?
+        |-- sim -> retorna BitmapDescriptor
+        |-- nao -> gera icone -> salva no cache -> retorna</div>
+
+  <h2 class="page-break">8. Estado e Arquitetura</h2>
+  <p>A arquitetura segue uma separacao em camadas: Presentation, Domain, Data e Core.</p>
+
+  <div class="diagram">Presentation: Screens + Cubits
+        |
+        v
+Domain: Entities + UseCases + Repository contracts
+        |
+        v
+Data: Firestore / SQLite / Storage implementations
+        |
+        v
+Core: DI, sync, network, telemetry, security</div>
+
+  <h3>Por que Cubit?</h3>
+  <p>O estado e complexo, mas as acoes sao diretas: carregar dados, aplicar filtro, mover mapa, selecionar pin
+  e tentar retry. Cubit da previsibilidade sem criar muita cerimonia com eventos.</p>
+
+  <h3>Por que UseCase?</h3>
+  <p>Para a UI nao conhecer Firestore, SQLite, Storage ou detalhes de sync. A tela chama uma intencao de negocio,
+  e a implementacao fica atras das interfaces.</p>
+
+  <h2>9. Filtros</h2>
+  <p>Filtro de tipo e data entra no estado do mapa. Quando muda, o cache e invalidado e uma nova query e feita
+  no viewport atual.</p>
+
+  <div class="diagram">Usuario seleciona filtro -> atualiza AlertaFilter -> limpa acumulador
+                       -> refaz query no viewport -> mapa atualizado</div>
+
+  <p>O ideal e empurrar o filtro para o Firestore. Quando isso nao e possivel, o app mantem filtro local defensivo.</p>
+
+  <h2>10. Observabilidade</h2>
+  <p>A solucao foi pensada para diagnosticar producao. O objetivo nao e apenas funcionar no aparelho local, mas
+  saber quando degradou e por que.</p>
+  <ul>
+    <li>Mapa: pins carregados, tempo de query, fallback, cluster, cache hit/miss.</li>
+    <li>Sync: total, sucesso, falha, dead-letter, tempo em fila.</li>
+    <li>Offline: tamanho da outbox, idade media/maxima, quantidade de retries.</li>
+    <li>Erros: Crashlytics e Performance atras de uma API mockavel.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Frase boa para entrevista:</strong> eu nao quero so que funcione no meu aparelho. Eu quero saber
+    quando degradou em producao e por que.
+  </div>
+
+  <h2>11. Testabilidade</h2>
+  <p>A estrategia de testes foca na logica que da para isolar:</p>
+  <ul>
+    <li>DAO SQLite em memoria.</li>
+    <li>Sync worker, backoff e dead-letter.</li>
+    <li>Filtros, cluster, cache de pins e geo utils.</li>
+    <li>Cubits e benchmark de viewport.</li>
+  </ul>
+  <p>O Google Maps em si fica melhor para teste de integracao/plataforma. Em unit test, o valor esta na logica
+  que decide quais markers mostrar.</p>
+
+  <h2>Resumo Final</h2>
+  <div class="callout">
+    Minha proposta e um app offline-first com outbox local criptografada, sync idempotente por
+    <code>clientId</code>, retry com backoff e dead-letter. Para o mapa, evito buscar tudo: carrego por viewport
+    com GeoHash, aplico filtros no backend quando possivel, mantenho filtro defensivo local, uso buffer para
+    reduzir chamadas, clustering para preservar fluidez e cache de icones para reduzir custo de renderizacao.
+    A arquitetura separa UI, dominio e dados, e a observabilidade foi pensada para diagnosticar gargalos reais.
+  </div>
+
+  <h2>Pontos Para Assumir Com Honestidade</h2>
+  <div class="callout warning">
+    Hoje eu vejo tres melhorias antes de producao plena: consolidar a tela real do formulario com o Cubit
+    testado, tornar o caminho GeoHash obrigatorio para bases grandes em vez de depender do fallback limitado,
+    e configurar o background sync nativo no iOS. Sao ajustes de maturidade, nao mudancas de arquitetura.
+  </div>
+</body>
+</html>

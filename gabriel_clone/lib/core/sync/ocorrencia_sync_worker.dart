@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
@@ -16,7 +15,9 @@ import '../security/attachment_storage.dart';
 /// Erros permanentes → deadLetter imediato (sem mais tentativas automáticas).
 bool isRecoverableSyncError(Object error) {
   final msg = error.toString().toLowerCase();
-  if (error is SocketException) return true;
+  if (error.runtimeType.toString().toLowerCase().contains('socketexception')) {
+    return true;
+  }
   if (msg.contains('network') ||
       msg.contains('timeout') ||
       msg.contains('connection') ||
@@ -258,6 +259,7 @@ class OcorrenciaSyncWorker {
       informacoes: payload['informacoes'] as String,
       quando: DateTime.parse(payload['quando'] as String),
       horario: payload['horario'] as String,
+      categoria: payload['categoria'] as String? ?? 'outros',
       latitude: (payload['latitude'] as num).toDouble(),
       longitude: (payload['longitude'] as num).toDouble(),
       enderecoBusca: payload['enderecoBusca'] as String,

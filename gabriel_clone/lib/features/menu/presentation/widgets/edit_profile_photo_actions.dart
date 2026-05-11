@@ -1,5 +1,7 @@
 ﻿part of '../menu_pages.dart';
 
+// ignore_for_file: invalid_use_of_protected_member
+
 extension _EditProfilePhotoActions on _EditProfilePageState {
   Future<void> _showPhotoSourceSheet() async {
     final source = await showModalBottomSheet<ImageSource>(

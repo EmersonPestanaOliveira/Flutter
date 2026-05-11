@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -7,6 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../../../../core/geo/geo_utils.dart';
 import '../../../../core/observability/telemetry.dart';
 import '../../../../core/security/attachment_storage.dart';
+import '../../../../core/storage/storage_upload.dart';
+import '../../../home/domain/enums/alerta_tipo.dart';
 import '../../data/services/ocorrencia_service.dart';
 
 /// Responsabilidade exclusiva: fazer upload de attachments e gravar no Firestore.
@@ -74,6 +74,7 @@ class OcorrenciaRemoteDatasourceImpl implements OcorrenciaRemoteDatasource {
       mediaUrls.add({'url': url, 'tipo': media.kind});
     }
 
+    final tipo = alertaTipoFromString(input.categoria);
     final doc = _firestore.collection('ocorrencias').doc(clientId);
     final existing = await doc.get();
     final payload = <String, Object?>{
@@ -83,6 +84,7 @@ class OcorrenciaRemoteDatasourceImpl implements OcorrenciaRemoteDatasource {
       'informacoes': input.informacoes,
       'quando': Timestamp.fromDate(input.quando),
       'horario': input.horario,
+      'categoria': input.categoria,
       'latitude': input.latitude,
       'longitude': input.longitude,
       'enderecoBusca': input.enderecoBusca,
@@ -109,7 +111,7 @@ class OcorrenciaRemoteDatasourceImpl implements OcorrenciaRemoteDatasource {
         'cidade': '',
         'data': Timestamp.fromDate(input.quando),
         'descricao': 'Relato comunitario',
-        'tipo': 'Outros',
+        'tipo': tipo.label,
         'localizacao': GeoPoint(input.latitude, input.longitude),
         'geohash': GeoUtils.geohash(input.latitude, input.longitude),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -127,11 +129,9 @@ class OcorrenciaRemoteDatasourceImpl implements OcorrenciaRemoteDatasource {
     final start = DateTime.now().millisecondsSinceEpoch;
     final reference = _storage.ref('$folder/${attachment.storageName}');
     final uploadPath = await _attachmentStorage.prepareForUpload(attachment.path);
-    final uploadFile = File(uploadPath);
-    final sizeBytes = await uploadFile.length();
+    final sizeBytes = await localFileLength(uploadPath);
     try {
-      final task = await reference.putFile(uploadFile);
-      final url = await task.ref.getDownloadURL();
+      final url = await uploadLocalFile(reference, uploadPath);
       _telemetry?.log('sync.attachment_upload_success', params: {
         'clientId': _safeId(clientId),
         'kind': attachment.kind,
@@ -150,10 +150,7 @@ class OcorrenciaRemoteDatasourceImpl implements OcorrenciaRemoteDatasource {
       rethrow;
     } finally {
       if (uploadPath != attachment.path) {
-        final temp = File(uploadPath);
-        if (await temp.exists()) {
-          await temp.delete();
-        }
+        await deleteLocalFileIfExists(uploadPath);
       }
     }
   }
@@ -169,10 +166,7 @@ class OcorrenciaRemoteDatasourceImpl implements OcorrenciaRemoteDatasource {
     ];
     var total = 0;
     for (final path in paths) {
-      final file = File(path);
-      if (await file.exists()) {
-        total += await file.length();
-      }
+      total += await localFileLength(path);
     }
     return total;
   }

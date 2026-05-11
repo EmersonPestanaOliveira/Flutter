@@ -1,8 +1,8 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+
+import '../../../../core/storage/storage_upload.dart';
 
 class OcorrenciaInfoSection {
   const OcorrenciaInfoSection({required this.title, required this.body});
@@ -28,6 +28,7 @@ class CreateOcorrenciaInput {
     required this.informacoes,
     required this.quando,
     required this.horario,
+    required this.categoria,
     required this.latitude,
     required this.longitude,
     required this.enderecoBusca,
@@ -41,6 +42,10 @@ class CreateOcorrenciaInput {
   final String informacoes;
   final DateTime quando;
   final String horario;
+
+  /// Categoria da ocorrência, mapeada a partir de [AlertaTipo.name].
+  final String categoria;
+
   final double latitude;
   final double longitude;
   final String enderecoBusca;
@@ -128,6 +133,7 @@ class OcorrenciaService {
       'informacoes': input.informacoes,
       'quando': Timestamp.fromDate(input.quando),
       'horario': input.horario,
+      'categoria': input.categoria,
       'latitude': input.latitude,
       'longitude': input.longitude,
       'enderecoBusca': input.enderecoBusca,
@@ -146,8 +152,7 @@ class OcorrenciaService {
 
   Future<String> _upload(OcorrenciaAttachment attachment, String folder) async {
     final reference = _storage.ref('$folder/${attachment.storageName}');
-    final task = await reference.putFile(File(attachment.path));
-    return task.ref.getDownloadURL();
+    return uploadLocalFile(reference, attachment.path);
   }
 
   static const _fallbackInfo = [

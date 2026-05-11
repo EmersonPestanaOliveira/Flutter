@@ -1,12 +1,8 @@
 ﻿part of '../menu_pages.dart';
 
-extension _AddPlaceFindActions on _AddPlacePageState {
-  bool get _canFinish =>
-      !_isBusy &&
-      _place != null &&
-      _selectedProfile != null &&
-      _isFaceValidated;
+// ignore_for_file: invalid_use_of_protected_member
 
+extension _AddPlaceFindActions on _AddPlacePageState {
   Future<void> _findPlace() async {
     if (!_formKey.currentState!.validate()) {
       return;

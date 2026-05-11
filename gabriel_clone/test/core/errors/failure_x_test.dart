@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gabriel_clone/core/errors/failure_x.dart';
 import 'package:gabriel_clone/core/errors/failures.dart';
 import 'package:gabriel_clone/core/network/backend_error_code.dart';
 
